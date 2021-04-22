@@ -1,4 +1,5 @@
 use crate::eval::{Data, Radical, Rational, Symbolic};
+use num::rational::Ratio;
 pub trait NthRoot<RHS = Self>
 where
     Self: Sized,
@@ -90,9 +91,12 @@ impl NthRoot for u32 {
         let mut so_far = 0_u32;
         for i in 0..self {
             so_far += increment_for_dimension_formula(i);
-            if so_far == self {return Some(i + 1)}
-            else if so_far > self {return None}
-        };
+            if so_far == self {
+                return Some(i + 1);
+            } else if so_far > self {
+                return None;
+            }
+        }
         None // this should actually never happen
     }
 }
@@ -104,14 +108,30 @@ impl NthRoot<i64> for Data {
             Err(String::from(
                 "Maths error: cannot take the 0th root of a number",
             ))
-        } else {
-            let (shouldInvert, index) = (rhs < 0, rhs.abs());
+        } else Ok({
+            let (should_invert, index) = (rhs < 0, rhs.abs() as u32);
             match self {
                 Self::Int(lhs) => {
-                    
+                    // If it is an int then 1:
+                    let mut should_negate = false; 
+                    if lhs < 0 { // we need to check that we're not taking the square/4th etc root of a negative number
+                        if rhs.divisible_by(2) {
+                            return Err("Non-real error: even root of a negative number");
+                        } else {
+                            shouldNegate = true; // in that case we just negate the output of it as if it were a positive number
+                        }
+                    }
+                    match (lhs as u32).nth_root(index) { // now that that's sorted out, does the root resolve to an integer?
+                        Some(n) => Self::Int( n as i64 * if should_negate {-1} else {1} ), // if so, return that (negated as necessary)
+                        None => Self::Radical(Radical::new(
+                            if should_invert {Ratio::from((-1)} else Ratio::from(1),
+                            index,
+                            Box::new(self),
+                        ))
+                    }
                 }
             }
         }
         Ok(())
-    }
+    })
 }
