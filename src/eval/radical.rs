@@ -19,7 +19,7 @@ fn primes_to_k<'a>(k: u16) -> Vec<u16>
 
 impl Radical {
     pub fn simplify(self) -> Self {
-        let prime_exponands = primes_to_k(self.radicand.nth_root(self.index).into().ceil() as u16).iter().map(|x| (x.pow(self.index), *x as u16));
+        let prime_exponands = primes_to_k(self.radicand.nth_root(self.index as i64).into().ceil() as u16).iter().map(|x| (x.pow(self.index), *x as u16));
         let possible_extractible_factors: Vec<(_, _)> = prime_exponands
             .filter(|x| {
                 let data = *self.radicand;
@@ -42,6 +42,13 @@ impl Radical {
             radicand,
         }
         .simplify_by(factors.to_vec())
+    }
+    fn new(coeff: Ratio<i64>, index: u32, radicand: Box<Data>) -> Self {
+        Self {
+            coefficient: coeff,
+            index,
+            radicand,
+        }.simplify()
     }
 }
 
