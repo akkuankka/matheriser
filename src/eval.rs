@@ -86,7 +86,20 @@ impl Symbolic {
             None => 0.
         }
     }
+    /// Makes sure symbolics aren't illformed or symbols in disguise, returns Err(Symbol) if they are
+    pub fn sanity_check(self) -> Result<Self, String> {
+        let result = Self {
+            coeff: if self.coeff.unwrap_or(Data::Int(1)) == Data::Int(1) { None } else {self.coeff},
+            symbol: self.symbol,
+            constant: if self.constant.unwrap_or(Data::Int(0)) == Data::Int(0) { None } else {self.coeff}
+
+        };
+        if result.coeff == None && result.constant == None { Err(result.symbol)}
+        else {Ok(result)}
+
+    }
 }
+
 
 /// The basic data type that all our calculations act on, yes this is very large
 /// for what might be in other implementations a `f64` but in order to preserve
