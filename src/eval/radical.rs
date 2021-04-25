@@ -43,7 +43,7 @@ impl Radical {
         }
         .simplify_by(factors.to_vec())
     }
-    fn new(coeff: Ratio<i64>, index: u32, radicand: Box<Data>) -> Self {
+    pub fn new(coeff: Ratio<i64>, index: u32, radicand: Box<Data>) -> Self {
         Self {
             coefficient: coeff,
             index,

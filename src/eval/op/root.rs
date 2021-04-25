@@ -1,4 +1,4 @@
-use crate::eval::{Data, Radical, Rational, Symbolic};
+use crate::eval::{Data, DivisibleBy, Radical, Rational, Symbolic};
 use num::rational::Ratio;
 pub trait NthRoot<RHS = Self>
 where
@@ -108,30 +108,128 @@ impl NthRoot<i64> for Data {
             Err(String::from(
                 "Maths error: cannot take the 0th root of a number",
             ))
-        } else Ok({
-            let (should_invert, index) = (rhs < 0, rhs.abs() as u32);
-            match self {
-                Self::Int(lhs) => {
-                    // If it is an int then 1:
-                    let mut should_negate = false; 
-                    if lhs < 0 { // we need to check that we're not taking the square/4th etc root of a negative number
-                        if rhs.divisible_by(2) {
-                            return Err("Non-real error: even root of a negative number");
-                        } else {
-                            shouldNegate = true; // in that case we just negate the output of it as if it were a positive number
+        } else {
+            Ok({
+                let (should_invert, index) = (rhs < 0, rhs.abs() as u32);
+                let mut should_negate = false;
+                match self {
+                    Self::Int(lhs) => {
+                        // If it is an int then 1:
+                        if lhs < 0 {
+                            // we need to check that we're not taking the square/4th etc root of a negative number
+                            if rhs.divisible_by(2) {
+                                return Err("Non-real error: even root of a negative number");
+                            } else {
+                                should_negate = true; // in that case we just negate the output of it as if it were a positive number
+                            }
+                        }
+                        match (lhs as u32).nth_root(index) {
+                            // now that that's sorted out, does the root resolve to an integer?
+                            Some(n) => Self::Int(n as i64 * if should_negate { -1 } else { 1 }), // if so, return that (negated as necessary)
+                            None => Self::Radical(Radical::new(
+                                if should_invert {
+                                    Ratio::from(-1)
+                                } else {
+                                    Ratio::from(1)
+                                },
+                                index,
+                                Box::new(self),
+                            )),
                         }
                     }
-                    match (lhs as u32).nth_root(index) { // now that that's sorted out, does the root resolve to an integer?
-                        Some(n) => Self::Int( n as i64 * if should_negate {-1} else {1} ), // if so, return that (negated as necessary)
-                        None => Self::Radical(Radical::new(
-                            if should_invert {Ratio::from((-1)} else Ratio::from(1),
+                    Self::Float(n) => {
+                        if n < 0 {
+                            // we need to check that we're not taking the square/4th etc root of a negative number
+                            if rhs.divisible_by(2) {
+                                return Err("Non-real error: even root of a negative number");
+                            } else {
+                                should_negate = true; // in that case we just negate the output of it as if it were a positive number
+                            }
+                        }
+                        Self::Radical(Radical::new(
+                            if should_negate {
+                                Ratio::from(-1)
+                            } else {
+                                Ratio::from(1)
+                            },
                             index,
                             Box::new(self),
                         ))
                     }
+                    Self::Rational(rat) => {
+                        if rat < Ratio::from(0) {
+                            // we need to check that we're not taking the square/4th etc root of a negative number
+                            if rhs.divisible_by(2) {
+                                return Err(
+                                    "Non-real error: even root of a negative number".to_string()
+                                );
+                            } else {
+                                should_negate = true; // in that case we just negate the output of it as if it were a positive number
+                            }
+                        }
+                        Self::Radical(Radical::new(
+                            Ratio::from((if should_negate { 1 } else { -1 }, *rat.denom())),
+                            index,
+                            Box::new(Self::Int(*rat.denom() * *rat.numer())),
+                        ))
+                    }
+                    Self::Radical(rad) => {
+                        let mut result =
+                            Radical::new(rad.coefficient, rad.index * index, rad.radicand);
+                        if result.index.divisible_by(2) {
+                            if *result.radicand < 0. {
+                                return Err(
+                                    "Non-real error: even root of a negative number".to_string()
+                                );
+                            } else {
+                                should_negate = true;
+                            }
+                        }
+                        if should_negate {
+                            Self::Radical(result * -1)
+                        } else {
+                            Self::Radical(result)
+                        }
+                    }
+                    Self::Symbol(s) => {
+                        if let Self::Float(f) = self.as_float() {
+                            if f < 0. {
+                                // we need to check that we're not taking the square/4th etc root of a negative number
+                                if rhs.divisible_by(2) {
+                                    return Err("Non-real error: even root of a negative number"
+                                        .to_string());
+                                } else {
+                                    should_negate = true; // in that case we just negate the output of it as if it were a positive number
+                                }
+                            }
+                        }
+                        Self::Radical(Radical::new(
+                            Ratio::from(if should_negate { 1 } else { -1 }),
+                            index,
+                            Box::new(self),
+                        ))
+                    }
+                    Self::Symbolic(s) => {
+                        if let Self::Float(f) = self.as_float() {
+                            if f < 0. {
+                                // we need to check that we're not taking the square/4th etc root of a negative number
+                                if rhs.divisible_by(2) {
+                                    return Err("Non-real error: even root of a negative number"
+                                        .to_string());
+                                } else {
+                                    should_negate = true; // in that case we just negate the output of it as if it were a positive number
+                                }
+                            }
+                        }
+                        Self::Radical(Radical::new(
+                            Ratio::from(if should_negate { 1 } else { -1 }),
+                            index,
+                            Box::new(self),
+                        ))
+                    }
+                    _ => panic!("The developer forgot to implement Roots for some data type")
                 }
-            }
+            })
         }
-        Ok(())
-    })
+    }
 }
