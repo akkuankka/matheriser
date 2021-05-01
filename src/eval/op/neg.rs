@@ -1,5 +1,4 @@
-use crate::eval::{Data, DivisibleBy, Radical, Symbolic, OrMerge};
-use num::rational::Ratio;
+use crate::eval::{Data, Radical, Symbolic};
 use std::ops::Neg;
 
 impl Neg for Data {
