@@ -1,5 +1,5 @@
 use crate::eval::{Data, DivisibleBy, Radical, Symbolic};
-use crate::util::option::OrMerge;
+use crate::util::option::{Catch, OrMerge};
 use std::ops::Mul;
 
 impl Mul for Data {
@@ -88,34 +88,110 @@ impl Mul for Data {
                             coeff: a
                                 .coeff
                                 .or_merge(|x, y| x * y, b.coeff)
-                                .or_merge(|x, y| x * y, b.symbol.into()),
+                                .or_merge(|x, y| x * y, b.symbol.into())
+                                .catch(Self::Int(1)),
                             symbol: a.symbol,
                             constant: a
                                 .constant
                                 .map(|x| x * b.symbol.into()) // if it is Some(x), multiply it by symbol
-                                .and_then(|x| b.coeff.or_merge(|a, b| a * b, x)), // if it is Some(x), multiply it by coefficient
+                                .and_then(|x| b.coeff.or_merge(|a, b| a * b, x)) // if it is Some(x), multiply it by coefficient
+                                .catch(Self::Int(0)),
                         }
                         .into(),
                     ) + Self::Symbolic(
                         Symbolic {
-                            coeff: a.coeff.or_merge(|x, y| x * y, b.constant),
+                            coeff: a
+                                .coeff
+                                .or_merge(|x, y| x * y, b.constant)
+                                .catch(Self::Int(1)),
                             symbol: a.symbol,
                             constant: a
                                 .constant
-                                .and_then(|x| b.constant.or_merge(|a, b| a * b, x)),
+                                .and_then(|x| b.constant.or_merge(|a, b| a * b, x))
+                                .catch(Self::Int(0)),
                         }
                         .into(),
                     )
                 }
             }, // now that all the single-type operations are done, the two sided ones
-            (Self::Symbolic(syc), Self::Int(int)) => Self::Symbolic(
+            (Self::Float(flt), _) => Self::Float(flt * rhs.into()), // get floats out of the way because they're bad
+            (_, Self::Float(flt)) => Self::Float(flt * self.into()),
+            (Self::Symbolic(syc), Self::Int(int)) | (Self::Int(int), Self::Symbolic(syc)) => {
+                Self::Symbolic(
+                    //next symbolics because they're specific
+                    Symbolic {
+                        coeff: syc.coeff.or_merge(|x, y| x * y, rhs).catch(Self::Int(1)),
+                        symbol: syc.symbol,
+                        constant: syc.constant.map(|x| x * int.into()).catch(Self::Int(0)),
+                    }
+                    .into(),
+                )
+            }
+            (Self::Symbolic(syc), Self::Symbol(sym)) | (Self::Symbol(sym), Self::Symbolic(syc)) => {
+                Self::Symbolic(
+                    Symbolic {
+                        coeff: syc.coeff.or_merge(|x, y| x * y, Self::Symbol(sym)),
+                        symbol: syc.symbol,
+                        constant: syc.constant.map(|x| x * Self::Symbol(sym)),
+                    }
+                    .into(),
+                )
+            }
+            (Self::Symbolic(syc), Self::Rational(rat))
+            | (Self::Rational(rat), Self::Symbolic(syc)) => Self::Symbolic(
                 Symbolic {
-                    coeff: syc.coeff.or_merge(|x, y| x * y, rhs),
+                    coeff: syc
+                        .coeff
+                        .or_merge(|x, y| x * y, Self::Rational(rat))
+                        .catch(Self::Int(1)),
                     symbol: syc.symbol,
-                    constant: syc.constant.map(|x| x * int.into()),
+                    constant: syc
+                        .constant
+                        .map(|x| x * Self::Rational(rat))
+                        .catch(Self::Int(0)),
                 }
                 .into(),
             ),
+            (Self::Symbolic(syc), Self::Radical(rad))
+            | (Self::Radical(rad), Self::Symbolic(syc)) => Self::Symbolic(
+                Symbolic {
+                    coeff: syc
+                        .coeff
+                        .or_merge(|x, y| x * y, Self::Radical(rad))
+                        .catch(Self::Int(1)),
+                    symbol: syc.symbol,
+                    constant: syc
+                        .constant
+                        .map(|x| x * Self::Radical(rad))
+                        .catch(Self::Int(0)),
+                }
+                .into(),
+            ),
+            (Self::Int(int), Self::Symbol(sym)) | (Self::Symbol(sym), Self::Int(int)) => {
+                Self::Symbolic(
+                    Symbolic {
+                        coeff: Some(Self::Int(int)),
+                        symbol: sym,
+                        constant: None,
+                    }
+                    .into(),
+                )
+            }
+            (Self::Int(int), Self::Rational(rat)) | (Self::Rational(rat), Self::Int(int)) => {
+                let result = rat * int;
+                if *result.denom() == 1 {
+                    Self::Int(*result.numer())
+                } else {
+                    Self::Rational(result)
+                }
+            }
+            (Self::Int(int), Self::Radical(rad)) | (Self::Radical(rad), Self::Int(int)) => {
+                Self::Radical(Radical::new(rad.coefficient * int, rad.index, rad.radicand))
+            }
+            (Self::Rational(rat), Self::Radical(rad))
+            | (Self::Radical(rad), Self::Rational(rat)) => {
+                Self::Radical(Radical::new(rad.coefficient * rat, rad.index, rad.radicand))
+            }
         }
     }
 }
