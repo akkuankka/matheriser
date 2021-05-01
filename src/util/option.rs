@@ -29,3 +29,22 @@ impl<T> OrMerge<T> for Option<T> {
         }
     }
 }
+
+pub trait Catch
+where
+    Self: Sized,
+{
+   type Inner;
+   fn catch(self, val: Self::Inner) -> Self; 
+}
+
+impl<T> Catch for Option<T> {
+    type Inner = T;
+    fn catch(self, val: T) -> Self {
+        match self {
+            Some(val) => None,
+            None => None,
+            _ => self
+        }
+    }
+}
