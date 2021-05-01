@@ -1,4 +1,4 @@
-use crate::eval::{Data, DivisibleBy, Radical, Rational, Symbolic};
+use crate::eval::{Data, DivisibleBy, Radical, Symbolic};
 use num::rational::Ratio;
 pub trait NthRoot<RHS = Self>
 where
