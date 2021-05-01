@@ -1,4 +1,5 @@
-use crate::eval::{Data, DivisibleBy, OrMerge, Radical, Symbolic};
+use crate::eval::{Data, DivisibleBy, Radical, Symbolic};
+use crate::util::option::OrMerge;
 use std::ops::Mul;
 
 impl Mul for Data {
@@ -73,43 +74,48 @@ impl Mul for Data {
                     Symbolic {
                         coeff: a
                             .coeff
-                            .or_merge(Some(k), |x, y| x * y)
-                            .or_merge(Some(Self::Symbol(b.symbol)), |x, y| x * y ),
+                            .or_merge(|x, y| x * y, Some(k))
+                            .or_merge(|x, y| x * y, Some(Self::Symbol(b.symbol))),
                         symbol: a.symbol,
-                        constant: a.constant.map(|x| x * k * b.symbol),
+                        constant: a.constant.map(|x| x * k * b.symbol.into()),
                     }
                     .into(),
                 ),
-                _ => { // needs testing, IDK if this actually does what I think it does
+                _ => {
+                    // needs testing, IDK if this actually does what I think it does
                     Self::Symbolic(
                         Symbolic {
                             coeff: a
                                 .coeff
-                                .or_merge(b.coeff, |x, y| x * y)
-                                .or_merge(Some(Self::Symbol(b.symbol)), |x, y| x * y),
+                                .or_merge(|x, y| x * y, b.coeff)
+                                .or_merge(|x, y| x * y, b.symbol.into()),
                             symbol: a.symbol,
-                            constant: a.constant.map(|x| x * Data::Symbol(b.symbol) * b.coeff.unwrap_or(Data::Int(1)))
-                        }.into()
-                    ) +
-                    Self::Symbolic (
+                            constant: a
+                                .constant
+                                .map(|x| x * b.symbol.into()) // if it is Some(x), multiply it by symbol
+                                .and_then(|x| b.coeff.or_merge(|a, b| a * b, x)), // if it is Some(x), multiply it by coefficient
+                        }
+                        .into(),
+                    ) + Self::Symbolic(
                         Symbolic {
-                            coeff: a
-                                .coeff
-                                .or_merge(b.constant, |x, y| x * y)
-                                ,
+                            coeff: a.coeff.or_merge(|x, y| x * y, b.constant),
                             symbol: a.symbol,
-                            constant: a.constant.map(|x| x * b.constant.unwrap_or(Data::Int(1)))
-                        }.into()
+                            constant: a
+                                .constant
+                                .and_then(|x| b.constant.or_merge(|a, b| a * b, x)),
+                        }
+                        .into(),
                     )
                 }
-            } // now that all the single-type operations are done, the two sided ones
+            }, // now that all the single-type operations are done, the two sided ones
             (Self::Symbolic(syc), Self::Int(int)) => Self::Symbolic(
                 Symbolic {
-                    coeff: syc.coeff.or_merge(rhs.into(), |x, y| x * y),
+                    coeff: syc.coeff.or_merge(|x, y| x * y, rhs),
                     symbol: syc.symbol,
-                    constant: syc.map(|x|, x * int)
-                }.into()
-            )
+                    constant: syc.constant.map(|x| x * int.into()),
+                }
+                .into(),
+            ),
         }
     }
 }
