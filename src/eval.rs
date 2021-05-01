@@ -57,14 +57,8 @@ impl DivisibleBy<u16> for Symbolic {
 
 impl Symbolic {
     fn as_float(self) -> f64 {
-        self.coeff.unwrap_or(Data::Int(1)).as_float() * self.symbol.symbol_eval() + match self.constant {
-            Some(d) => {
-                match d.as_float(){
-                    Data::Float(n) => n,
-                    _ => 0.
-
-                }
-            },
+        f64::from(self.coeff.unwrap_or(Data::Int(1))) * self.symbol.symbol_eval().unwrap_or(1.) + match self.constant {
+            Some(d) => d.into(),
             None => 0.
         }
     }
