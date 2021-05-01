@@ -2,6 +2,7 @@
 
 mod parser;
 mod eval;
+mod util;
 fn main() {
     println!("Hello, world!");
 }

@@ -1,33 +1,15 @@
-mod radical;
-use crate::parser::{BinaryOp, ExprTree, UnaryOp};
+use crate::{
+    parser::{BinaryOp, ExprTree, UnaryOp},
+    util::option::OrMerge,
+};
 use num::rational::Ratio;
 use num::BigInt;
 use radical::Radical;
 use std::convert::{TryFrom, TryInto};
 use std::ops::{Add, Div, Mul, Neg, Rem, Sub};
 
+mod radical;
 mod op;
-
-trait OrMerge<T>
-where
-    Self: Sized,
-{
-    type Other;
-
-    fn or_merge(self, other: Self::Other, f: impl FnOnce(T, T) -> T) -> Self;
-}
-
-impl<T> OrMerge<T> for Option<T> {
-    type Other = Self;
-    fn or_merge(self, other: Self::Other, f: impl FnOnce(T, T) -> T) -> Self {
-        match (self, other) {
-            (None, None) => None,
-            (None, a) => a,
-            (a, None) => a,
-            (Some(a), Some(b)) => Some(f(a, b)),
-        }
-    }
-}
 
 /// This is a symbolic expression, not like the ones in lisp,
 /// these are for dealing with symbolic numbers like pi and e
