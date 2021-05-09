@@ -240,8 +240,6 @@ impl DivisibleBy<Data> for Data {
                 Self::Float(m) => n.divisible_by(m),
                 _ => false
             }
-                
-
         }
     }
 }

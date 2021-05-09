@@ -1,4 +1,4 @@
-use super::{Data, DivisibleBy, ratio_as_float, op::root::NthRoot};
+use super::{op::root::NthRoot, ratio_as_float, Data, DivisibleBy};
 use num::{integer::Roots, rational::Ratio};
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
@@ -11,15 +11,21 @@ pub struct Radical {
 
 const PRIMES_TO_50: [u16; 15] = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47];
 
-fn primes_to_k<'a>(k: u16) -> Vec<u16>
-{
-    let primes = PRIMES_TO_50.iter().copied().take_while(move |n| *n < k).collect::<Vec<_>>(); 
-   primes
+fn primes_to_k<'a>(k: u16) -> Vec<u16> {
+    let primes = PRIMES_TO_50
+        .iter()
+        .copied()
+        .take_while(move |n| *n < k)
+        .collect::<Vec<_>>();
+    primes
 }
 
 impl Radical {
-    pub fn simplify(self) -> Self {
-        let prime_exponands = primes_to_k(self.radicand.nth_root(self.index as i64).into().ceil() as u16).iter().map(|x| (x.pow(self.index), *x as u16));
+    pub fn simplify(self) -> Result<Self, String> {
+        let prime_exponands =
+            primes_to_k(f64::from(self.radicand.nth_root(self.index as i64)?).ceil() as u16)
+                .iter()
+                .map(|x| (x.pow(self.index), *x as u16));
         let possible_extractible_factors: Vec<(_, _)> = prime_exponands
             .filter(|x| {
                 let data = *self.radicand;
@@ -29,26 +35,27 @@ impl Radical {
         self.simplify_by(possible_extractible_factors)
     }
 
-    fn simplify_by(self, factors: Vec<(u16, u16)>) -> Self {
+    fn simplify_by(self, factors: Vec<(u16, u16)>) -> Result<Self, String> {
         if factors.len() == 0 {
-            return self;
+            return Ok(self);
         } //bad form, maybe
         let ([(factor, root)], factors) = factors.split_at(1);
         let coefficient = self.coefficient * *root as i64;
-        let radicand = *self.radicand / (*factor as i64);
+        let radicand = (*self.radicand / Data::Int(*factor as i64))?;
         Radical {
             coefficient,
             index: self.index,
-            radicand,
+            radicand: radicand.into(),
         }
         .simplify_by(factors.to_vec())
     }
     pub fn new(coeff: Ratio<i64>, index: u32, radicand: Box<Data>) -> Self {
-        Self {
+        Ok(Self {
             coefficient: coeff,
             index,
             radicand,
-        }.simplify()
+        }
+        .simplify())
     }
 }
 
@@ -83,5 +90,12 @@ impl DivisibleBy<Self> for Radical {
 impl Radical {
     pub fn as_float(self) -> f64 {
         ratio_as_float(self.coefficient) * f64::from(*self.radicand).nth_root(self.index as f64)
+    }
+    pub fn conjugate(self) -> Self {
+        Self::new( 
+            1.into(),
+            self.index,
+            self.radicand.pow(self.index - 1)
+        )        
     }
 }
