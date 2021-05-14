@@ -103,7 +103,7 @@ impl NthRoot for u32 {
 
 impl NthRoot<i64> for Data {
     type Output = Result<Self, String>;
-    fn nth_root(self, rhs: i64) -> Output {
+    fn nth_root(self, rhs: i64) -> Self::Output {
         if rhs == 0 {
             Err(String::from(
                 "Maths error: cannot take the 0th root of a number",
@@ -118,7 +118,7 @@ impl NthRoot<i64> for Data {
                         if lhs < 0 {
                             // we need to check that we're not taking the square/4th etc root of a negative number
                             if rhs.divisible_by(2) {
-                                return Err("Non-real error: even root of a negative number");
+                                return Err("Non-real error: even root of a negative number".into());
                             } else {
                                 should_negate = true; // in that case we just negate the output of it as if it were a positive number
                             }
@@ -138,10 +138,10 @@ impl NthRoot<i64> for Data {
                         }
                     }
                     Self::Float(n) => {
-                        if n < 0 {
+                        if n < 0. {
                             // we need to check that we're not taking the square/4th etc root of a negative number
                             if rhs.divisible_by(2) {
-                                return Err("Non-real error: even root of a negative number");
+                                return Err("Non-real error: even root of a negative number".into());
                             } else {
                                 should_negate = true; // in that case we just negate the output of it as if it were a positive number
                             }
@@ -186,7 +186,7 @@ impl NthRoot<i64> for Data {
                             }
                         }
                         if should_negate {
-                            Self::Radical(result * -1)
+                            Self::Radical(result) * Self::Int(-1)
                         } else {
                             Self::Radical(result)
                         }
