@@ -275,9 +275,9 @@ impl ExprTree {
                 let l = lhs.eval()?;
                 let r = rhs.eval()?;
                 match op {
-                    BinaryOp::Plus => Ok( l + r ),
-                    BinaryOp::Minus => Ok(l - r), 
-                    BinaryOp::Mul => Ok(l * r),
+                    BinaryOp::Plus => l + r,
+                    BinaryOp::Minus => l - r, 
+                    BinaryOp::Mul => l * r,
                     BinaryOp::Exp => l.pow(r),
                     BinaryOp::Div => l / r
                 }
