@@ -177,7 +177,7 @@ impl NthRoot<i64> for Data {
                         let mut result =
                             Radical::new(rad.coefficient, rad.index * index, rad.radicand);
                         if result.index.divisible_by(2) {
-                            if *result.radicand < 0. {
+                            if *result.radicand < Self::Int(0) {
                                 return Err(
                                     "Non-real error: even root of a negative number".to_string()
                                 );
@@ -186,7 +186,7 @@ impl NthRoot<i64> for Data {
                             }
                         }
                         if should_negate {
-                            Self::Radical(result) * Self::Int(-1)
+                            (Self::Radical(result) * Self::Int(-1))?
                         } else {
                             Self::Radical(result)
                         }

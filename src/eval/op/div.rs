@@ -1,4 +1,4 @@
-use crate::eval::{Data, DivisibleBy, Radical, SymbolEval, Symbolic};
+use crate::eval::{Data, DivisibleBy, Radical, SymbolEval, Symbolic, op::pow::Pow};
 use num::rational::Ratio;
 use std::ops::Div;
 
@@ -22,8 +22,8 @@ impl Div for Data {
                     Self::Float(m) => Ok(Self::Float(n as f64 / m)),
                     Self::Symbol(m) => Ok(Self::Float(n as f64 / m.symbol_eval()?)),
                     Self::Symbolic(m) => Ok(Self::Float(n as f64 / m.as_float())),
-                    Self::Radical(r) => (self * Self::Radical(r.conjugate())) / *r.radicand,
-                    Self::Rational(m) => self * Self::Int(*m.denom()) / Self::Int(*m.numer()),
+                    Self::Radical(r) => (self * Self::Radical(r.conjugate()))? / *r.radicand,
+                    Self::Rational(m) => (self * Self::Int(*m.denom()))? / Self::Int(*m.numer()),
                 },
                 Self::Symbol(s) => match rhs {
                     Self::Int(m) => Ok(Self::Symbolic(
@@ -51,7 +51,7 @@ impl Div for Data {
                         }
                         .into(),
                     )),
-                    _ => Ok(Self::Float(s.symbol_eval()? / rhs.into())),
+                    _ => Ok(Self::Float(s.symbol_eval()? / f64::from(rhs))),
                 },
                 Self::Symbolic(n) => match rhs {
                     Self::Symbol(m) => {
@@ -61,8 +61,8 @@ impl Div for Data {
                                 Some(e) => e.divisible_by(rhs),
                             }
                         {
-                            Ok(n.coeff.unwrap_or(Self::Int(0))
-                                + (n.constant.unwrap_or(Self::Int(1)) / rhs)?)
+                            n.coeff.unwrap_or(Self::Int(0))
+                                + (n.constant.unwrap_or(Self::Int(1)) / rhs)?
                         } else {
                             Ok(Self::Symbolic(
                                 Symbolic {
@@ -115,7 +115,7 @@ impl Div for Data {
                                 let rhs_modified = Radical::new(
                                     m.coefficient,
                                     n.index,
-                                    m.radicand.pow(n.index / m.index).simplify(),
+                                    m.radicand.pow((Data::from(n.index as i64) / Data::from(m.index as i64))?)?.into(),
                                 );
                                 if rhs_modified.radicand == n.radicand {
                                     Ok(Self::Radical(Radical::new(
@@ -130,7 +130,7 @@ impl Div for Data {
                                 let lhs_modified = Radical::new(
                                     n.coefficient,
                                     m.index,
-                                    n.radicand.pow(m.index / n.index).simplify(),
+                                    n.radicand.pow((Data::from(m.index as i64) / Data::from(n.index as i64))?)?.into(),
                                 );
                                 if lhs_modified.radicand == n.radicand {
                                     Ok(Self::Radical(Radical::new(
@@ -158,9 +158,9 @@ impl Div for Data {
                     _ => self.as_float() / rhs.as_float(),
                 },
                 Self::Rational(rat) => match rhs {
-                    Self::Int(_) => Self::Int(*rat.numer()) / (Self::Int(*rat.denom()) * rhs),
+                    Self::Int(_) => Self::Int(*rat.numer()) / (Self::Int(*rat.denom()) * rhs)?,
                     Self::Rational(r) => Self::Int(*rat.numer() * *r.denom()) / Self::Int(*rat.denom() * r.numer()),
-                    Self::Radical(r) => Self::Int(*rat.numer()) / (*r.radicand * Self::Rational(r.coefficient) * Self::Int(*rat.denom())),
+                    Self::Radical(r) => Self::Int(*rat.numer()) / ((*r.radicand * Self::Rational(r.coefficient))? * Self::Int(*rat.denom()))?,
                     _ => self.as_float() / rhs.as_float(),
                 },
                 _ => self.as_float() / rhs.as_float(),

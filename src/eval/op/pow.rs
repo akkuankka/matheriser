@@ -29,18 +29,20 @@ impl Pow for Data {
                 Self::Int(*i.numer()).pow(abs_rhs)? / Self::Int(*i.denom()).pow(abs_rhs)?
             }
             Self::Radical(i) => match abs_rhs {
-                Self::Int(j) if j.divisible_by(i.index as i64) => Ok(Self::Rational(i.coefficient)
+                Self::Int(j) if j.divisible_by(i.index as i64) => Self::Rational(i.coefficient)
                     .pow(Self::Int(j))?
-                    * i.radicand.pow(Self::Int(j / i.index as i64))?),
-                Self::Rational(j) => self
-                    .pow(Self::Int(*j.numer()))
-                    .and_then(|x| x.nth_root(*j.denom())),
+                    * i.radicand.pow(Self::Int(j / i.index as i64))?,
+                Self::Rational(j) => match self
+                    .pow(Self::Int(*j.numer())) {
+                        Ok(x) => x.nth_root(*j.denom()),
+                        Err(e) => Err(e)
+                    }
                 Self::Radical(j) => Ok(Data::Float(i.as_float().powf(j.as_float()))),
                 Self::Symbol(j) => Ok(Data::Float(i.as_float().powf(j.symbol_eval()?))),
                 Self::Symbolic(j) => Ok(Data::Float(i.as_float().powf(j.as_float()))),
             },
             Self::Symbol(i) => match abs_rhs {
-                Self::Int(j) => Ok(Self::Symbol(i).naive_pow(j as u32)),
+                Self::Int(j) => Self::Symbol(i).naive_pow(j as u32),
                 Self::Rational(j) => Self::Symbol(i)
                     .pow(Self::Int(*j.numer()))
                     .and_then(|x| x.nth_root(*j.denom())),
@@ -68,7 +70,7 @@ impl Pow for Data {
                             Symbolic {
                                 coeff: match i.coeff {
                                     None => Some(Self::Symbol(i.symbol)),
-                                    Some(n) => Some(n.pow(Self::Int(j))? * Self::Symbol(i.symbol)),
+                                    Some(n) => Some((n.pow(Self::Int(j))? * Self::Symbol(i.symbol))?),
                                 },
                                 symbol: i.symbol,
                                 constant: None,
@@ -100,16 +102,17 @@ trait NaivePow {
     fn naive_pow(self, pow: u32) -> Self::Output;
 }
 
-impl<T> NaivePow for T
+impl<T, E> NaivePow for T
 where
-    T: std::ops::Mul<T, Output = T>,
+    T: std::ops::Mul<T, Output = Result<T, E>>
 {
-    type Output = Self;
+    type Output = Result<T, E>;
     fn naive_pow(self, pow: u32) -> Self::Output {
         let mut result = self;
         for _ in 0..pow - 1 {
-            result = result * self;
+            result = (result * self)?;
         }
-        result
+        Ok(result)
     }
 }
+

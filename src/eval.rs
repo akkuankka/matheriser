@@ -5,11 +5,12 @@ use crate::{
 use num::rational::Ratio;
 use num::BigInt;
 use radical::Radical;
+use op::{root::NthRoot, pow::Pow};
 use std::convert::{TryFrom, TryInto};
 use std::ops::{Add, Div, Mul, Neg, Rem, Sub};
 
-mod radical;
 mod op;
+mod radical;
 
 /// This is a symbolic expression, not like the ones in lisp,
 /// these are for dealing with symbolic numbers like pi and e
@@ -57,25 +58,34 @@ impl DivisibleBy<u16> for Symbolic {
 
 impl Symbolic {
     fn as_float(self) -> f64 {
-        f64::from(self.coeff.unwrap_or(Data::Int(1))) * self.symbol.symbol_eval().unwrap_or(1.) + match self.constant {
-            Some(d) => d.into(),
-            None => 0.
-        }
+        f64::from(self.coeff.unwrap_or(Data::Int(1))) * self.symbol.symbol_eval().unwrap_or(1.)
+            + match self.constant {
+                Some(d) => d.into(),
+                None => 0.,
+            }
     }
     /// Makes sure symbolics aren't illformed or symbols in disguise, returns Err(Symbol) if they are
     pub fn sanity_check(self) -> Result<Self, String> {
         let result = Self {
-            coeff: if self.coeff.unwrap_or(Data::Int(1)) == Data::Int(1) { None } else {self.coeff},
+            coeff: if self.coeff.unwrap_or(Data::Int(1)) == Data::Int(1) {
+                None
+            } else {
+                self.coeff
+            },
             symbol: self.symbol,
-            constant: if self.constant.unwrap_or(Data::Int(0)) == Data::Int(0) { None } else {self.coeff}
-
+            constant: if self.constant.unwrap_or(Data::Int(0)) == Data::Int(0) {
+                None
+            } else {
+                self.coeff
+            },
         };
-        if result.coeff == None && result.constant == None { Err(result.symbol)}
-        else {Ok(result)}
-
+        if result.coeff == None && result.constant == None {
+            Err(result.symbol)
+        } else {
+            Ok(result)
+        }
     }
 }
-
 
 /// The basic data type that all our calculations act on, yes this is very large
 /// for what might be in other implementations a `f64` but in order to preserve
@@ -118,23 +128,22 @@ impl From<f64> for Data {
 }
 
 impl Data {
-   ///flattens any Data value down to a f64
-   /// once float-land has been entered, there are only a few cases where we can get out of it.
+    ///flattens any Data value down to a f64
+    /// once float-land has been entered, there are only a few cases where we can get out of it.
 
-   fn as_float(self) -> Self {
-       match self {
-           Self::Float(_) => self,
-           Self::Int(n) => Self::Float(n as f64),
-           Self::Rational(n) => Self::Float(ratio_as_float(n)),
-           Self::Symbol(s) => Self::Float(s.symbol_eval().unwrap_or(0.)),
-           Self::Symbolic(s) => Self::Float(s.as_float()),
-           Self::Radical(r) => Self::Float(r.as_float()),
-       }   
-   }
+    fn as_float(self) -> Self {
+        match self {
+            Self::Float(_) => self,
+            Self::Int(n) => Self::Float(n as f64),
+            Self::Rational(n) => Self::Float(ratio_as_float(n)),
+            Self::Symbol(s) => Self::Float(s.symbol_eval().unwrap_or(0.)),
+            Self::Symbolic(s) => Self::Float(s.as_float()),
+            Self::Radical(r) => Self::Float(r.as_float()),
+        }
+    }
 }
 
-fn ratio_as_float(r: Ratio<i64>) -> f64
-{
+fn ratio_as_float(r: Ratio<i64>) -> f64 {
     let (numer, denom) = r.into();
     numer as f64 / denom as f64
 }
@@ -148,15 +157,14 @@ trait SymbolEval {
 impl SymbolEval for String {
     fn symbol_eval(self) -> Result<f64, String> {
         Ok(match self.as_str() {
-            "pi" | "Pi" => std::f64::consts::PI, 
+            "pi" | "Pi" => std::f64::consts::PI,
             "e" | "E" => std::f64::consts::E,
             "phi" | "Phi" => 1.61803398874989484820458683436563811,
             "sqrt2" | "root2" => std::f64::consts::SQRT_2,
-            _ => return Err(format!("constant {} not recognised", self))
+            _ => return Err(format!("constant {} not recognised", self)),
         })
     }
 }
-
 
 /// This trait allows us to wrap a calculation for if something is divisible by something else,
 /// which is useful generically for reducing radicals, rationals and symbolic expressions *not the lisp sort*
@@ -180,7 +188,6 @@ impl GenericThunk for i64 {}
 impl GenericThunk for u16 {}
 impl GenericThunk for u32 {}
 impl GenericThunk for f64 {}
-
 
 impl<T> !GenericThunk for Ratio<T> {}
 impl !GenericThunk for Radical {}
@@ -238,18 +245,43 @@ impl DivisibleBy<Data> for Data {
             },
             Self::Float(n) => match divisor {
                 Self::Float(m) => n.divisible_by(m),
-                _ => false
-            }
+                _ => false,
+            },
         }
     }
 }
 
 impl From<Data> for f64 {
     fn from(d: Data) -> f64 {
-       let f_d = d.as_float();
-       if let Data::Float(n) = f_d {
-           return n
-       }
-       else {unreachable!()}
+        let f_d = d.as_float();
+        if let Data::Float(n) = f_d {
+            return n;
+        } else {
+            unreachable!()
+        }
+    }
+}
+
+// this is the bit that actually does the maths
+impl ExprTree {
+    fn eval(self) -> Result<Data, String> {
+        match self {
+            ExprTree::Val(k) => Ok(k),
+            ExprTree::UNode(op, t) => match op {
+                UnaryOp::Neg => t.eval().map(|x| -x),
+                UnaryOp::Word(_) => Err("Word functions are currently not supported".to_string()),
+            },
+            ExprTree::BNode(op, lhs, rhs) => {
+                let l = lhs.eval()?;
+                let r = rhs.eval()?;
+                match op {
+                    BinaryOp::Plus => l + r,
+                    BinaryOp::Minus => l - r, 
+                    BinaryOp::Mul => l * r,
+                    BinaryOp::Exp => l.pow(r),
+                    BinaryOp::Div => l / r
+                }
+            }
+        }
     }
 }
