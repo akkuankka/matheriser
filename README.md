@@ -6,10 +6,10 @@ Still very much in development, does not compile.
 ## TODO:
 Data & maths operation
 - [x] Implement addition   
-- [ ] Implement subtraction
-- [ ] Implement multiplication
-- [ ] Implement division
-- [ ] Implement exponentiation
+- [x] Implement subtraction
+- [x] Implement multiplication
+- [x] Implement division
+- [x] Implement exponentiation
 - [x] Implement nth-roots
 Functionality
 - [ ] Write evaluator function
