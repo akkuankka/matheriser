@@ -19,6 +19,6 @@ Further Features
 - [ ] Implement syntax for non-typable functions (i.e. log, roots)
 - [ ] Implement TUI frontend
 - [ ] Implement GUI frontend (Druid?)
-- [ ] *LINEAR ALGE****BRUH***
+- [ ] *LINEAR ALGE* ***BRUH***
 - [ ] *** Learn how linear algebra works *** -> Profit???
 
