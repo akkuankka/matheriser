@@ -13,7 +13,7 @@ Data & maths operation
 - [x] Implement nth-roots
 
 Functionality
-- [ ] Write evaluator function
+- [x] Write evaluator function
 - [ ] Write display/printout functions
 - [ ] Write cmdline frontend
 
