@@ -22,8 +22,8 @@ impl Div for Data {
                     Self::Float(m) => Ok(Self::Float(n as f64 / m)),
                     Self::Symbol(m) => Ok(Self::Float(n as f64 / m.symbol_eval()?)),
                     Self::Symbolic(m) => Ok(Self::Float(n as f64 / m.as_float())),
-                    Self::Radical(r) => (self * Self::Radical(r.conjugate())) / *r.radicand,
-                    Self::Rational(m) => self * Self::Int(*m.denom()) / Self::Int(*m.numer()),
+                    Self::Radical(r) => (self * Self::Radical(r.conjugate()))? / *r.radicand,
+                    Self::Rational(m) => (self * Self::Int(*m.denom()))? / Self::Int(*m.numer()),
                 },
                 Self::Symbol(s) => match rhs {
                     Self::Int(m) => Ok(Self::Symbolic(
@@ -158,9 +158,9 @@ impl Div for Data {
                     _ => self.as_float() / rhs.as_float(),
                 },
                 Self::Rational(rat) => match rhs {
-                    Self::Int(_) => Self::Int(*rat.numer()) / (Self::Int(*rat.denom()) * rhs),
+                    Self::Int(_) => Self::Int(*rat.numer()) / (Self::Int(*rat.denom()) * rhs)?,
                     Self::Rational(r) => Self::Int(*rat.numer() * *r.denom()) / Self::Int(*rat.denom() * r.numer()),
-                    Self::Radical(r) => Self::Int(*rat.numer()) / (*r.radicand * Self::Rational(r.coefficient) * Self::Int(*rat.denom())),
+                    Self::Radical(r) => Self::Int(*rat.numer()) / ((*r.radicand * Self::Rational(r.coefficient))? * Self::Int(*rat.denom()))?,
                     _ => self.as_float() / rhs.as_float(),
                 },
                 _ => self.as_float() / rhs.as_float(),
