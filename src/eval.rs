@@ -3,7 +3,6 @@ use crate::{
     util::option::OrMerge,
 };
 use num::rational::Ratio;
-use num::BigInt;
 use radical::Radical;
 use op::{root::NthRoot, pow::Pow};
 use std::convert::{TryFrom, TryInto};
@@ -11,6 +10,7 @@ use std::ops::{Add, Div, Mul, Neg, Rem, Sub};
 
 mod op;
 mod radical;
+mod ord;
 
 /// This is a symbolic expression, not like the ones in lisp,
 /// these are for dealing with symbolic numbers like pi and e
