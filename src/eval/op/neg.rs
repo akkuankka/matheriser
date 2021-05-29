@@ -15,7 +15,7 @@ impl Neg for Data {
             Self::Symbolic(s) => Self::Symbolic(Box::new(Symbolic {
                 coeff: s.coeff.map(|x| -x).or(Some(Data::Int(-1))),
                 symbol: s.symbol,
-                constant: s.coeff.map(|x| -x)
+                constant: s.constant.map(|x| -x)
             })),
             Self::Rational(r) => Self::Rational(-r),
             Self::Radical(r) => Self::Radical(Radical::new( -r.coefficient, r.index, r.radicand))
