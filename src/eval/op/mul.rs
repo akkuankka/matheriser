@@ -1,5 +1,5 @@
-use crate::eval::{Data, DivisibleBy, Radical, Symbolic, op::pow::Pow}; use
-crate::util::option::{Catch, OrMerge};
+use crate::eval::{op::pow::Pow, Data, DivisibleBy, Radical, Symbolic};
+use crate::util::option::{Catch, OrMerge};
 use std::ops::Mul;
 
 impl Mul for Data {
@@ -30,13 +30,21 @@ impl Mul for Data {
                     Self::Radical(Radical::new(
                         a.coefficient * b.coefficient,
                         a.index,
-                        Box::new((*a.radicand * b.radicand.pow(Data::from(a.index as i64 / b.index as i64))? )?),
+                        Box::new(
+                            (*a.radicand
+                                * b.radicand
+                                    .pow(Data::from(a.index as i64 / b.index as i64))?)?,
+                        ),
                     ))
                 } else if b.index.divisible_by(a.index) {
                     Self::Radical(Radical::new(
                         b.coefficient * a.coefficient,
                         b.index,
-                        Box::new((*b.radicand * a.radicand.pow(Data::from(b.index as i64 / a.index as i64))? )?),
+                        Box::new(
+                            (*b.radicand
+                                * a.radicand
+                                    .pow(Data::from(b.index as i64 / a.index as i64))?)?,
+                        ),
                     ))
                 } else if *a.radicand == *b.radicand {
                     Self::Radical(Radical::new(
@@ -56,9 +64,9 @@ impl Mul for Data {
                     symbol: b,
                     constant: None,
                 }
-                .into())
-            ),
-            (Self::Symbolic(a), Self::Symbolic(b)) => match (b.coeff, b.constant) {
+                .into(),
+            )),
+            (Self::Symbolic(a), Self::Symbolic(b)) => match (b.coeff.clone(), b.constant.clone()) {
                 (None, None) => {
                     println!("This is embarassing, I messed up some algebra, it's fine though");
                     Ok(Self::Symbolic(
@@ -74,67 +82,76 @@ impl Mul for Data {
                     Symbolic {
                         coeff: a
                             .coeff
-                            .or_merge(|x, y| x * y, Ok(Some(k)))?
-                            .or_merge(|x, y| x * y, Ok(Some(Self::Symbol(b.symbol))))?,
+                            .or_merge(|x, y| x * y, Ok(Some(k.clone())))?
+                            .or_merge(|x, y| x * y, Ok(Some(Self::Symbol(b.symbol.clone()))))?,
                         symbol: a.symbol,
                         constant: match a.constant {
                             None => None,
-                            Some(x) => Some((x * k).and_then(|y| y * b.symbol.into())?)
+                            Some(x) => Some((x * k).and_then(|y| y * b.symbol.into())?),
                         },
                     }
                     .into(),
                 )),
-                _ => {
+                (b_coeff, b_constant) => {
                     // needs testing, IDK if this actually does what I think it does
                     Self::Symbolic(
                         Symbolic {
                             coeff: a
                                 .coeff
-                                .or_merge(|x, y| x * y, Ok(b.coeff))?
-                                .or_merge(|x, y| x * y, Ok(Some(b.symbol.into())))?
+                                .clone()
+                                .or_merge(|x, y| x * y, Ok(b_coeff.clone()))?
+                                .or_merge(|x, y| x * y, Ok(Some(b.symbol.clone().into())))?
                                 .catch(Self::Int(1)),
-                            symbol: a.symbol,
-                            constant: match (match a.constant { // extremely weird syntactic hackery due to not being able to use map
-                                None => None,
-                                Some(x) => Some((x * b.symbol.into())?) // if it is Some(x), multiply it by symbol
-                            }, b.coeff) {
+                            symbol: a.symbol.clone(),
+                            constant: match (
+                                match a.constant.clone() {
+                                    // extremely weird syntactic hackery due to not being able to use map
+                                    None => None,
+                                    Some(x) => Some((x * b.symbol.into())?), // if it is Some(x), multiply it by symbol
+                                },
+                                b_coeff,
+                            ) {
                                 (None, _) => None,
                                 (Some(t), None) => Some(t),
-                                (Some(l), Some(r)) => Some((l * r)?) // if it is Some(x), multiply it by coefficient
+                                (Some(l), Some(r)) => Some((l * r)?), // if it is Some(x), multiply it by coefficient
                             }
-                                .catch(Self::Int(0))
+                            .catch(Self::Int(0)),
                         }
                         .into(),
                     ) + Self::Symbolic(
                         Symbolic {
                             coeff: a
                                 .coeff
-                                .or_merge(|x, y| x * y, Ok(b.constant))?
+                                .or_merge(|x, y| x * y, Ok(b_constant.clone()))?
                                 .catch(Self::Int(1)),
                             symbol: a.symbol,
-                            constant: match (a.constant, b.constant) {
-                               (None, _) => None,
-                               (Some(t), None) => Some(t),
-                               (Some(l), Some(r)) => Some((l * r)?)
+                            constant: match (a.constant, b_constant) {
+                                (None, _) => None,
+                                (Some(t), None) => Some(t),
+                                (Some(l), Some(r)) => Some((l * r)?),
                             }
-                                .catch(Self::Int(0)),
+                            .catch(Self::Int(0)),
                         }
                         .into(),
                     )
                 }
             }, // now that all the single-type operations are done, the two sided ones
-            (Self::Float(flt), _) => Ok(Self::Float(flt * f64::from(rhs))), // get floats out of the way because they're bad
-            (_, Self::Float(flt)) => Ok(Self::Float(flt * f64::from(self))),
+            (Self::Float(flt), a) => Ok(Self::Float(flt * f64::from(a))), // get floats out of the way because they're bad
+            (a, Self::Float(flt)) => Ok(Self::Float(flt * f64::from(a))),
             (Self::Symbolic(syc), Self::Int(int)) | (Self::Int(int), Self::Symbolic(syc)) => {
                 Ok(Self::Symbolic(
                     //next symbolics because they're specific
                     Symbolic {
-                        coeff: syc.coeff.or_merge(|x, y| x * y, Ok(Some(rhs)))?.catch(Self::Int(1)),
+                        coeff: syc
+                            .coeff
+                            .or_merge(|x, y| x * y, Ok(Some(Data::from(int))))?
+                            .catch(Self::Int(1)),
                         symbol: syc.symbol,
                         constant: match syc.constant.map(|x| x * int.into()) {
                             None => None,
-                            Some(t) => Some(t?)
-                        }.catch(Self::Int(0)),
+                            Some(t) => Some(t?),
+                        }
+                        .catch(Self::Int(0)),
                     }
                     .into(),
                 ))
@@ -142,11 +159,13 @@ impl Mul for Data {
             (Self::Symbolic(syc), Self::Symbol(sym)) | (Self::Symbol(sym), Self::Symbolic(syc)) => {
                 Ok(Self::Symbolic(
                     Symbolic {
-                        coeff: syc.coeff.or_merge(|x, y| x * y, Ok(Some(Self::Symbol(sym))))?,
+                        coeff: syc
+                            .coeff
+                            .or_merge(|x, y| x * y, Ok(Some(Self::Symbol(sym.clone()))))?,
                         symbol: syc.symbol,
                         constant: match syc.constant.map(|x| x * Self::Symbol(sym)) {
                             None => None,
-                            Some(t) => Some(t?)
+                            Some(t) => Some(t?),
                         },
                     }
                     .into(),
@@ -160,13 +179,11 @@ impl Mul for Data {
                         .or_merge(|x, y| x * y, Ok(Some(Self::Rational(rat))))?
                         .catch(Self::Int(1)),
                     symbol: syc.symbol,
-                    constant: match syc
-                        .constant
-                        .map(|x| x * Self::Rational(rat)) {
-                            None => None,
-                            Some(t) => Some(t?)
-                        }
-                        .catch(Self::Int(0)),
+                    constant: match syc.constant.map(|x| x * Self::Rational(rat)) {
+                        None => None,
+                        Some(t) => Some(t?),
+                    }
+                    .catch(Self::Int(0)),
                 }
                 .into(),
             )),
@@ -175,16 +192,14 @@ impl Mul for Data {
                 Symbolic {
                     coeff: syc
                         .coeff
-                        .or_merge(|x, y| x * y, Ok(Some(Self::Radical(rad))))?
+                        .or_merge(|x, y| x * y, Ok(Some(Self::Radical(rad.clone()))))?
                         .catch(Self::Int(1)),
                     symbol: syc.symbol,
-                    constant: match syc
-                        .constant
-                        .map(|x| x * Self::Radical(rad)) {
-                            None => None,
-                            Some(t) => Some(t?)
-                        }
-                        .catch(Self::Int(0)),
+                    constant: match syc.constant.map(|x| x * Self::Radical(rad)) {
+                        None => None,
+                        Some(t) => Some(t?),
+                    }
+                    .catch(Self::Int(0)),
                 }
                 .into(),
             )),
@@ -206,13 +221,23 @@ impl Mul for Data {
                     Ok(Self::Rational(result))
                 }
             }
-            (Self::Int(int), Self::Radical(rad)) | (Self::Radical(rad), Self::Int(int)) => {
-                Ok(Self::Radical(Radical::new(rad.coefficient * int, rad.index, rad.radicand)))
-            }
+            (Self::Int(int), Self::Radical(rad)) | (Self::Radical(rad), Self::Int(int)) => Ok(
+                Self::Radical(Radical::new(rad.coefficient * int, rad.index, rad.radicand)),
+            ),
             (Self::Rational(rat), Self::Radical(rad))
-            | (Self::Radical(rad), Self::Rational(rat)) => {
-                Ok(Self::Radical(Radical::new(rad.coefficient * rat, rad.index, rad.radicand)))
-            }
+            | (Self::Radical(rad), Self::Rational(rat)) => Ok(Self::Radical(Radical::new(
+                rad.coefficient * rat,
+                rad.index,
+                rad.radicand,
+            ))),
+            (a, Self::Symbol(s)) | (Self::Symbol(s), a) => Ok(Self::Symbolic(
+                Symbolic {
+                    coeff: Some(a),
+                    symbol: s,
+                    constant: None,
+                }
+                .into(),
+            )),
         }
     }
 }
