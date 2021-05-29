@@ -1,5 +1,5 @@
 use super::{op::pow::Pow, op::root::NthRoot, ratio_as_float, Data, DivisibleBy};
-use num::{rational::Ratio};
+use num::rational::Ratio;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Radical {
@@ -21,13 +21,12 @@ fn primes_to_k<'a>(k: u16) -> Vec<u16> {
 
 impl Radical {
     pub fn simplify(self) -> Result<Self, String> {
-        let prime_exponands =
-            primes_to_k(f64::from(self.radicand.nth_root(self.index as i64)?).ceil() as u16)
+        let possible_extractible_factors =
+            primes_to_k(f64::from(self.radicand.clone().nth_root(self.index as i64)?).ceil() as u16)
                 .iter()
-                .map(|x| (x.pow(self.index), *x as u16));
-        let possible_extractible_factors: Vec<(_, _)> = prime_exponands
+                .map(|x| (x.pow(self.index), *x as u16))
             .filter(|x| {
-                let data = *self.radicand;
+                let data = &*self.radicand;
                 data.divisible_by(x.1)
             })
             .collect();
@@ -35,18 +34,19 @@ impl Radical {
     }
 
     fn simplify_by(self, factors: Vec<(u16, u16)>) -> Result<Self, String> {
-        if factors.len() == 0 {
-            return Ok(self);
-        } //bad form, maybe
-        let ([(factor, root)], factors) = factors.split_at(1);
-        let coefficient = self.coefficient * *root as i64;
-        let radicand = (*self.radicand / Data::Int(*factor as i64))?;
-        Radical {
-            coefficient,
-            index: self.index,
-            radicand: radicand.into(),
+        match factors.as_slice() {
+            [] => Ok(self),
+            [(factor, root), ref factors @ ..] => {
+                let coefficient = self.coefficient * *root as i64;
+                let radicand = (*self.radicand / Data::Int(*factor as i64))?;
+                Radical {
+                    coefficient,
+                    index: self.index,
+                    radicand: radicand.into(),
+                }
+                .simplify_by(factors.to_vec())
+            }
         }
-        .simplify_by(factors.to_vec())
     }
     pub fn new(coeff: Ratio<i64>, index: u32, radicand: Box<Data>) -> Self {
         Self {

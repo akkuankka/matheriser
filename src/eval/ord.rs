@@ -5,60 +5,62 @@ use std::cmp::Ordering;
 
 impl std::cmp::PartialOrd for Data {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        match (self, other) {
-            (&Self::Int(a), &Self::Int(b)) => Some(a.cmp(&b)),
-            (&Self::Float(a), &Self::Int(b)) => a.partial_cmp(&(b as f64)),
-            (&Self::Rational(a), &Self::Int(b)) => a.partial_cmp(&Ratio::from(b)),
-            (&Self::Symbol(a), &Self::Int(b)) => a.symbol_eval().ok()?.partial_cmp(&(b as f64)),
-            (&Self::Radical(a), &Self::Int(b)) => {
-                let (index, radicand) = (a.index, *a.radicand);
-                let (lneg, rneg) = (a.coefficient < 0.into(), b < 0);
-                let rhs = Ratio::from(b) * a.coefficient.recip();
+        match (&self, &other) {
+            (Self::Int(a), Self::Int(b)) => Some(a.cmp(b)),
+            (Self::Float(a), Self::Int(b)) => a.partial_cmp(&(*b as f64)),
+            (Self::Rational(a), Self::Int(b)) => a.partial_cmp(&Ratio::from(*b)),
+            (Self::Symbol(a), Self::Int(b)) => a.symbol_eval().ok()?.partial_cmp(&(*b as f64)),
+            (Self::Radical(a), Self::Int(b)) => {
+                let (index, radicand) = (a.index, *a.radicand.clone());
+                let (lneg, rneg) = (a.coefficient < 0.into(), *b < 0);
+                let rhs = Ratio::from(*b) * a.coefficient.recip();
                 if lneg { -radicand } else { radicand }.partial_cmp(&if rneg {
                     -Self::Rational(rhs.pow(index as i32).abs())
                 } else {
                     Self::Rational(rhs.pow(index as i32).abs())
                 })
             }
-            (&Self::Symbolic(a), &Self::Int(b)) => {
+            (Self::Symbolic(a), Self::Int(b)) => {
                 let Symbolic {
                     coeff,
                     symbol,
                     constant,
-                } = *a;
-                let should_flip = coeff.unwrap_or(Self::Int(1)) < Data::from(0);
+                } = *a.clone();
+                let should_flip = coeff.as_ref().unwrap_or(&Self::Int(1)) < &Data::from(0);
                 Self::Symbol(symbol)
                     .partial_cmp(
-                        &((*other - constant.unwrap_or(Data::Int(0))).ok()?
+                        &((Self::Int(*b) - constant.unwrap_or(Data::Int(0))).ok()?
                             / coeff.unwrap_or(Data::Int(1)))
                         .ok()?,
                     )
                     .map(|o| if should_flip { o.reverse() } else { o })
             }
-            (&Self::Float(a), &Self::Float(b)) => a.partial_cmp(&b),
-            (&Self::Symbol(a), &Self::Symbol(b)) => {
+            (Self::Float(a), Self::Float(b)) => a.partial_cmp(b),
+            (Self::Symbol(a), Self::Symbol(b)) => {
                 a.symbol_eval().ok()?.partial_cmp(&b.symbol_eval().ok()?)
             }
-            (&Self::Symbol(a), &Self::Float(b)) => a.symbol_eval().ok()?.partial_cmp(&b),
-            (&Self::Float(a), &Self::Rational(b)) => a.partial_cmp(&ratio_as_float(b)),
-            (&Self::Rational(a), &Self::Symbol(b)) => {
-                ratio_as_float(a).partial_cmp(&b.symbol_eval().ok()?)
+            (Self::Symbol(a), Self::Float(b)) => a.symbol_eval().ok()?.partial_cmp(b),
+            (Self::Float(a), &Self::Rational(b)) => a.partial_cmp(&ratio_as_float(*b)),
+            (Self::Rational(a), Self::Symbol(b)) => {
+                ratio_as_float(*a).partial_cmp(&b.symbol_eval().ok()?)
             }
-            (&Self::Symbol(a), &Self::Radical(b)) => {
-                a.symbol_eval().ok()?.partial_cmp(&b.as_float())
+            (Self::Symbol(a), Self::Radical(b)) => {
+                a.symbol_eval().ok()?.partial_cmp(&b.clone().as_float())
             }
-            (&Self::Symbol(a), &Self::Symbolic(b)) => {
-                if (a == b.symbol) && b.constant == None {
+            (Self::Symbol(a), Self::Symbolic(b)) => {
+                if (a == &b.symbol) && b.constant == None {
                     // symbol can be factored out
-                    Data::Int(1).partial_cmp(&(b.coeff.unwrap_or(Data::Int(1))))
+                    Data::Int(1).partial_cmp(&(b.coeff.clone().unwrap_or(Data::Int(1))))
                 } else {
-                    a.symbol_eval().ok()?.partial_cmp(&b.as_float())
+                    a.symbol_eval().ok()?.partial_cmp(&b.clone().as_float())
                 }
             }
-            (&Self::Symbolic(a), &Self::Symbolic(b)) => {
+            (Self::Symbolic(a), Self::Symbolic(b)) => {
+                let a = a.clone();
+                let b = b.clone();
                 if a.symbol == b.symbol {
                     // the symbols are the same: fast path
-                    match (a.constant, b.constant) {
+                    match (&a.constant, &b.constant) {
                         // keeping in mind that we're assuming our symbols are positive (this means symbols can't be used for variables)
                         (None, None) => a
                             .coeff
@@ -68,20 +70,20 @@ impl std::cmp::PartialOrd for Data {
                             let m = a.coeff.unwrap_or(Data::Int(1));
                             let n = b.coeff.unwrap_or(Data::Int(1));
 
-                            if (m > n) && (c >= 0.into()) {
+                            if (m > n) && (c >= &0.into()) {
                                 Some(Ordering::Greater)
-                            } else if (m < n) && (c <= 0.into()) {
+                            } else if (m < n) && (c <= &0.into()) {
                                 Some(Ordering::Less)
-                            } else if (m == n) && (c == 0.into()) {
+                            } else if (m == n) && (c == &0.into()) {
                                 Some(Ordering::Equal)
                             } else if m > n {
-                                if c > ((m - n).ok()? * a.symbol.into()).ok()? {
+                                if c > &((m - n).ok()? * a.symbol.into()).ok()? {
                                     Some(Ordering::Greater)
                                 } else {
                                     Some(Ordering::Less)
                                 }
                             } else if m < n {
-                                if c < ((n - m).ok()? * a.symbol.into()).ok()? {
+                                if c < &((n - m).ok()? * a.symbol.into()).ok()? {
                                     Some(Ordering::Less)
                                 } else {
                                     Some(Ordering::Greater)
@@ -92,14 +94,20 @@ impl std::cmp::PartialOrd for Data {
                         }
                         (None, Some(c)) => other.partial_cmp(&self).map(|o| o.reverse()),
                         (Some(c), Some(d)) => {
-                            let m = a.coeff.unwrap_or(Data::Int(1));
-                            let n = b.coeff.unwrap_or(Data::Int(1));
+                            let c = c.clone();
+                            let d = d.clone();
+                            let m = a.coeff.clone().unwrap_or(Data::Int(1));
+                            let n = b.coeff.clone().unwrap_or(Data::Int(1));
                             let x = Data::from(a.symbol.clone());
                             if (m == n) && (c == d) {
                                 Some(Ordering::Equal)
-                            } else if (x * (m - n).ok()?).ok()? == (d - c).ok()? {
+                            } else if (x.clone() * (m.clone() - n.clone()).ok()?).ok()?
+                                == (d.clone() - c.clone()).ok()?
+                            {
                                 Some(Ordering::Equal)
-                            } else if (x * (m - n).ok()?).ok()? < (d - c).ok()? {
+                            } else if (x.clone() * (m.clone() - n.clone()).ok()?).ok()?
+                                < (d.clone() - c.clone()).ok()?
+                            {
                                 Some(Ordering::Less)
                             } else if (x * (m - n).ok()?).ok()? < (d - c).ok()? {
                                 Some(Ordering::Less)
@@ -112,8 +120,10 @@ impl std::cmp::PartialOrd for Data {
                     a.as_float().partial_cmp(&b.as_float())
                 }
             }
-            (&Self::Float(a), &Self::Radical(b)) => a.partial_cmp(&b.as_float()),
+            (&Self::Float(a), &Self::Radical(b)) => a.partial_cmp(&b.clone().as_float()),
             (&Self::Radical(a), &Self::Radical(b)) => {
+                let a = a.clone();
+                let b = b.clone();
                 if a.index == b.index {
                     // easily done, this will be nearly every case because this is mostly sqrts
                     let i = a.index;
@@ -129,18 +139,22 @@ impl std::cmp::PartialOrd for Data {
                     let k = lcm(a.index, b.index) as i32; // lowest common multiple of the indices
                     let m = a.coefficient.abs();
                     let n = b.coefficient.abs();
-                    let lhs = (Self::Rational(m.pow(k))
-                        * a.radicand.pow(Data::from(k as i64 / a.index as i64)).ok()?)
-                    .ok()?;
-                    let rhs = (Self::Rational(n.pow(k))
-                        * b.radicand.pow(Data::from(k as i64 / b.index as i64)).ok()?)
-                    .ok()?;
+                    let lhs = { |x: Data| if lneg { -x } else { x } }( // flip if negative
+                        (Self::Rational(m.pow(k))
+                            * a.radicand.pow(Data::from(k as i64 / a.index as i64)).ok()?)
+                        .ok()?,
+                    );
+                    let rhs = { |x: Data| if lneg { -x } else { x } }(
+                        (Self::Rational(n.pow(k))
+                            * b.radicand.pow(Data::from(k as i64 / b.index as i64)).ok()?)
+                        .ok()?,
+                    );
                     lhs.partial_cmp(&rhs)
                 }
             }
-            (&Self::Radical(a), &Self::Rational(b)) => {
-                let (index, radicand) = (a.index, *a.radicand);
-                let (lneg, rneg) = (a.coefficient < 0.into(), b < 0.into());
+            (Self::Radical(a), Self::Rational(b)) => {
+                let (index, radicand) = (a.index, *a.radicand.clone());
+                let (lneg, rneg) = (a.coefficient < 0.into(), b < &0.into());
                 let rhs = b / a.coefficient.abs();
                 if lneg { -radicand } else { radicand }.partial_cmp(&if rneg {
                     -Self::Rational(rhs.pow(index as i32).abs())
@@ -148,27 +162,27 @@ impl std::cmp::PartialOrd for Data {
                     Self::Rational(rhs.pow(index as i32).abs())
                 })
             }
-            (&Self::Rational(a), &Self::Rational(b)) => a.partial_cmp(&b),
-            (&Self::Symbolic(a), &Self::Rational(b)) => {
+            (Self::Rational(a), Self::Rational(b)) => a.partial_cmp(&b),
+            (Self::Symbolic(a), Self::Rational(b)) => {
                 let Symbolic {
                     coeff,
                     symbol,
                     constant,
-                } = *a;
-                let should_flip = coeff.unwrap_or(Self::Int(1)) < Data::from(0);
+                } = *a.clone();
+                let should_flip = coeff.as_ref().unwrap_or(&Self::Int(1)) < &Data::from(0);
                 Self::Symbol(symbol)
                     .partial_cmp(
-                        &((*other - constant.unwrap_or(Data::Int(0))).ok()?
+                        &((Self::Rational(*b) - constant.unwrap_or(Data::Int(0))).ok()?
                             / coeff.unwrap_or(Data::Int(1)))
                         .ok()?,
                     )
                     .map(|o| if should_flip { o.reverse() } else { o })
             }
             (&Self::Radical(a), &Self::Symbolic(b)) => {
-                a.as_float().partial_cmp(&b.as_float()) // both of these values are sort of diffuse, but they're diffuse in different ways, so it's best to just use float
+                a.clone().as_float().partial_cmp(&b.clone().as_float()) // both of these values are sort of diffuse, but they're diffuse in different ways, so it's best to just use float
             }
             (&Self::Symbolic(a), &Self::Float(b)) => {
-                a.as_float().partial_cmp(&b) // both of these values are sort of diffuse, but they're diffuse in different ways, so it's best to just use float
+                a.clone().as_float().partial_cmp(b) // both of these values are sort of diffuse, but they're diffuse in different ways, so it's best to just use float
             }
             (a, b) => b.partial_cmp(a).map(|o| o.reverse()),
         }

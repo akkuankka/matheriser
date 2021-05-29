@@ -1,4 +1,4 @@
-use crate::eval::{Data, DivisibleBy, Radical, Symbolic};
+use crate::eval::{Data, DivisibleBy, Radical};
 use num::rational::Ratio;
 pub trait NthRoot<RHS = Self>
 where
@@ -12,11 +12,11 @@ where
 impl NthRoot for f64 {
     type Output = Self;
     // yoinked off of rosettacode, does it work ??
-    fn nth_root(self, A: f64) -> f64 {
+    fn nth_root(self, a: f64) -> f64 {
         let p = 1e-9_f64;
-        let mut x0 = A / self;
+        let mut x0 = a / self;
         loop {
-            let mut x1 = ((self - 1.0) * x0 + A / f64::powf(x0, self - 1.0)) / self;
+            let x1 = ((self - 1.0) * x0 + a / f64::powf(x0, self - 1.0)) / self;
             if (x1 - x0).abs() < (x0 * p).abs() {
                 return x1;
             };
@@ -40,9 +40,7 @@ fn generate_pascals_row_inners(n: u32) -> Vec<u32> {
     if (n == 0) | (n == 1) {
         return vec![0];
     } else {
-        let use_symmetry_point = (n as f64 / 2.).ceil() as u32;
         let mut result = vec![n];
-        let mut reflection_counter = 1_u32;
         for i in 2..=n {
             let prev = *result.last().unwrap(); // we put something in the vec just then
             let current = prev * ((n + 1 - i) / i);
@@ -174,7 +172,7 @@ impl NthRoot<i64> for Data {
                         ))
                     }
                     Self::Radical(rad) => {
-                        let mut result =
+                        let result =
                             Radical::new(rad.coefficient, rad.index * index, rad.radicand);
                         if result.index.divisible_by(2) {
                             if *result.radicand < Self::Int(0) {
@@ -192,7 +190,7 @@ impl NthRoot<i64> for Data {
                         }
                     }
                     Self::Symbol(s) => {
-                        if let Self::Float(f) = self.as_float() {
+                      let f: f64 = Self::Symbol(s.clone()).into(); 
                             if f < 0. {
                                 // we need to check that we're not taking the square/4th etc root of a negative number
                                 if rhs.divisible_by(2) {
@@ -202,15 +200,14 @@ impl NthRoot<i64> for Data {
                                     should_negate = true; // in that case we just negate the output of it as if it were a positive number
                                 }
                             }
-                        }
                         Self::Radical(Radical::new(
                             Ratio::from(if should_negate { 1 } else { -1 }),
                             index,
-                            Box::new(self),
+                            Box::new(Self::Symbol(s)),
                         ))
                     }
                     Self::Symbolic(s) => {
-                        if let Self::Float(f) = self.as_float() {
+                        let f: f64 = Self::Symbolic(s.clone()).into(); 
                             if f < 0. {
                                 // we need to check that we're not taking the square/4th etc root of a negative number
                                 if rhs.divisible_by(2) {
@@ -220,14 +217,12 @@ impl NthRoot<i64> for Data {
                                     should_negate = true; // in that case we just negate the output of it as if it were a positive number
                                 }
                             }
-                        }
                         Self::Radical(Radical::new(
                             Ratio::from(if should_negate { 1 } else { -1 }),
                             index,
-                            Box::new(self),
+                            Box::new(Self::Symbolic(s)),
                         ))
                     }
-                    _ => panic!("The developer forgot to implement Roots for some data type")
                 }
             })
         }

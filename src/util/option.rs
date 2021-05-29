@@ -66,11 +66,13 @@ where
    fn catch(self, val: Self::Inner) -> Self; 
 }
 
-impl<T> Catch for Option<T> {
+impl<T> Catch for Option<T>
+    where T: PartialEq
+{
     type Inner = T;
     fn catch(self, val: T) -> Self {
         match self {
-            Some(val) => None,
+            Some(v) if v == val => None,
             None => None,
             _ => self
         }

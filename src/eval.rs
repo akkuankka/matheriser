@@ -1,6 +1,6 @@
 use crate::{
     parser::{BinaryOp, ExprTree, UnaryOp},
-    util::option::OrMerge,
+    util::option::{OrMerge, Catch}
 };
 use num::rational::Ratio;
 use radical::Radical;
@@ -15,7 +15,7 @@ mod ord;
 /// This is a symbolic expression, not like the ones in lisp,
 /// these are for dealing with symbolic numbers like pi and e
 #[derive(Clone, Debug, PartialEq)]
-struct Symbolic {
+pub struct Symbolic {
     coeff: Option<Data>,
     symbol: String,
     constant: Option<Data>,
@@ -31,7 +31,7 @@ impl DivisibleBy<&Data> for Symbolic {
         match &self.coeff {
             Some(d) => {
                 d.divisible_by(rhs)
-                    && match self.constant {
+                    && match &self.constant {
                         Some(d) => d.divisible_by(rhs),
                         None => true,
                     }
@@ -43,10 +43,10 @@ impl DivisibleBy<&Data> for Symbolic {
 
 impl DivisibleBy<u16> for Symbolic {
     fn divisible_by(&self, rhs: u16) -> bool {
-        match self.coeff {
+        match &self.coeff {
             Some(d) => {
                 d.divisible_by(rhs)
-                    && match self.constant {
+                    && match &self.constant {
                         Some(d) => d.divisible_by(rhs),
                         None => true,
                     }
@@ -67,17 +67,9 @@ impl Symbolic {
     /// Makes sure symbolics aren't illformed or symbols in disguise, returns Err(Symbol) if they are
     pub fn sanity_check(self) -> Result<Self, String> {
         let result = Self {
-            coeff: if self.coeff.unwrap_or(Data::Int(1)) == Data::Int(1) {
-                None
-            } else {
-                self.coeff
-            },
+            coeff: self.coeff.catch(Data::Int(1)),
             symbol: self.symbol,
-            constant: if self.constant.unwrap_or(Data::Int(0)) == Data::Int(0) {
-                None
-            } else {
-                self.coeff
-            },
+            constant: self.constant.catch(Data::Int(0))
         };
         if result.coeff == None && result.constant == None {
             Err(result.symbol)
@@ -151,17 +143,17 @@ fn ratio_as_float(r: Ratio<i64>) -> f64 {
 ///This trait describes the behaviour of a stringy symbol turning into a number
 
 trait SymbolEval {
-    fn symbol_eval(self) -> Result<f64, String>;
+    fn symbol_eval(&self) -> Result<f64, String>;
 }
 
 impl SymbolEval for String {
-    fn symbol_eval(self) -> Result<f64, String> {
+    fn symbol_eval(&self) -> Result<f64, String> {
         Ok(match self.as_str() {
             "pi" | "Pi" => std::f64::consts::PI,
             "e" | "E" => std::f64::consts::E,
             "phi" | "Phi" => 1.61803398874989484820458683436563811,
             "sqrt2" | "root2" => std::f64::consts::SQRT_2,
-            _ => return Err(format!("constant {} not recognised", self)),
+            e => return Err(format!("constant {} not recognised", e.to_string())),
         })
     }
 }
@@ -174,7 +166,7 @@ trait DivisibleBy<T> {
 
 impl<T, U> DivisibleBy<T> for U
 where
-    U: Rem<T> + GenericThunk,
+    U: Rem<T> + GenericThunk + Copy,
     <U as Rem<T>>::Output: PartialEq + From<u8>,
 {
     fn divisible_by(&self, divisor: T) -> bool {
@@ -194,7 +186,7 @@ impl !GenericThunk for Radical {}
 
 impl<T> DivisibleBy<Self> for Ratio<T>
 where
-    T: DivisibleBy<T> + Mul<Output = T>,
+    T: DivisibleBy<T> + Mul<Output = T> + Copy,
 {
     fn divisible_by(&self, rhs: Self) -> bool {
         // a/b is divisible by c/d when d is divisible by bc:
