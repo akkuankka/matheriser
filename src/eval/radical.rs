@@ -1,6 +1,5 @@
-use super::{op::root::NthRoot, ratio_as_float, Data, DivisibleBy};
-use num::{integer::Roots, rational::Ratio};
-use std::ops::{Add, Div, Mul, Neg, Sub};
+use super::{op::pow::Pow, op::root::NthRoot, ratio_as_float, Data, DivisibleBy};
+use num::{rational::Ratio};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Radical {
@@ -50,12 +49,13 @@ impl Radical {
         .simplify_by(factors.to_vec())
     }
     pub fn new(coeff: Ratio<i64>, index: u32, radicand: Box<Data>) -> Self {
-        Ok(Self {
+        Self {
             coefficient: coeff,
             index,
             radicand,
         }
-        .simplify())
+        .simplify()
+        .unwrap() // if this dies it's my fault
     }
 }
 
@@ -91,11 +91,11 @@ impl Radical {
     pub fn as_float(self) -> f64 {
         ratio_as_float(self.coefficient) * f64::from(*self.radicand).nth_root(self.index as f64)
     }
-    pub fn conjugate(self) -> Self {
-        Self::new( 
+    pub fn conjugate(self) -> Result<Self, String> {
+        Ok(Self::new(
             1.into(),
             self.index,
-            self.radicand.pow(self.index - 1)
-        )        
+            self.radicand.pow(Data::from(self.index as i64 - 1))?.into(),
+        ))
     }
 }
