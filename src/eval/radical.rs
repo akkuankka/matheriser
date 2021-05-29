@@ -59,27 +59,27 @@ impl Radical {
     }
 }
 
-impl DivisibleBy<Ratio<i64>> for Radical {
-    fn divisible_by(self, rhs: Ratio<i64>) -> bool {
-        self.coefficient.divisible_by(rhs)
+impl DivisibleBy<&Ratio<i64>> for Radical {
+    fn divisible_by(&self, rhs: &Ratio<i64>) -> bool {
+        self.coefficient.divisible_by(*rhs)
     }
 }
 
 impl DivisibleBy<u16> for Radical {
-    fn divisible_by(self, rhs: u16) -> bool {
+    fn divisible_by(&self, rhs: u16) -> bool {
         self.coefficient.numer().divisible_by(rhs as i64)
     }
 }
 impl DivisibleBy<i64> for Radical {
-    fn divisible_by(self, rhs: i64) -> bool {
+    fn divisible_by(&self, rhs: i64) -> bool {
         self.coefficient.numer().divisible_by(rhs)
     }
 }
 
-impl DivisibleBy<Self> for Radical {
-    fn divisible_by(self, rhs: Self) -> bool {
+impl DivisibleBy<&Self> for Radical {
+    fn divisible_by(&self, rhs: &Self) -> bool {
         // if we assume our radicals to be reduced, as I will, radicals are divisible if their radicands, indices are the same
-        if *self.radicand == *rhs.radicand && self.index == rhs.index {
+        if self.radicand == rhs.radicand && self.index == rhs.index {
             self.coefficient.divisible_by(rhs.coefficient)
         } else {
             false
