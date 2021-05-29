@@ -239,8 +239,8 @@ impl DivisibleBy<&Data> for Data {
             // Radicals are a bit tricky
             Self::Radical(n) => match &divisor {
                 Self::Int(m) => n.divisible_by(*m),
-                Self::Rational(rad) => n.divisible_by(*rad),
-                Self::Radical(m) => n.divisible_by(*m),
+                Self::Rational(rad) => n.divisible_by(rad),
+                Self::Radical(m) => n.divisible_by(m),
                 _ => false,
             },
             Self::Float(n) => match divisor {
