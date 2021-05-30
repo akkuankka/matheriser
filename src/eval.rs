@@ -1,16 +1,16 @@
 use crate::{
     parser::{BinaryOp, ExprTree, UnaryOp},
-    util::option::{OrMerge, Catch}
+    util::option::{Catch, OrMerge},
 };
 use num::rational::Ratio;
+use op::{pow::Pow, root::NthRoot};
 use radical::Radical;
-use op::{root::NthRoot, pow::Pow};
 use std::convert::{TryFrom, TryInto};
 use std::ops::{Add, Div, Mul, Neg, Rem, Sub};
 
 mod op;
-mod radical;
 mod ord;
+mod radical;
 
 /// This is a symbolic expression, not like the ones in lisp,
 /// these are for dealing with symbolic numbers like pi and e
@@ -57,19 +57,21 @@ impl DivisibleBy<u16> for Symbolic {
 }
 
 impl Symbolic {
-    fn as_float(self) -> f64 {
-        f64::from(self.coeff.unwrap_or(Data::Int(1))) * self.symbol.symbol_eval().unwrap_or(1.)
-            + match self.constant {
-                Some(d) => d.into(),
-                None => 0.,
-            }
+    fn as_float(self) -> Result<f64, String> {
+        Ok(
+            f64::try_from(self.coeff.unwrap_or(Data::Int(1)))? * self.symbol.symbol_eval()?
+                + match self.constant {
+                    Some(d) => d.try_into()?,
+                    None => 0.,
+                },
+        )
     }
     /// Makes sure symbolics aren't illformed or symbols in disguise, returns Err(Symbol) if they are
     pub fn sanity_check(self) -> Result<Self, String> {
         let result = Self {
             coeff: self.coeff.catch(Data::Int(1)),
             symbol: self.symbol,
-            constant: self.constant.catch(Data::Int(0))
+            constant: self.constant.catch(Data::Int(0)),
         };
         if result.coeff == None && result.constant == None {
             Err(result.symbol)
@@ -123,15 +125,15 @@ impl Data {
     ///flattens any Data value down to a f64
     /// once float-land has been entered, there are only a few cases where we can get out of it.
 
-    fn as_float(self) -> Self {
-        match self {
+    fn as_float(self) -> Result<Self, String> {
+        Ok(match self {
             Self::Float(_) => self,
             Self::Int(n) => Self::Float(n as f64),
             Self::Rational(n) => Self::Float(ratio_as_float(n)),
             Self::Symbol(s) => Self::Float(s.symbol_eval().unwrap_or(0.)),
-            Self::Symbolic(s) => Self::Float(s.as_float()),
-            Self::Radical(r) => Self::Float(r.as_float()),
-        }
+            Self::Symbolic(s) => Self::Float(s.as_float()?),
+            Self::Radical(r) => Self::Float(r.as_float()?),
+        })
     }
 }
 
@@ -243,11 +245,13 @@ impl DivisibleBy<&Data> for Data {
     }
 }
 
-impl From<Data> for f64 {
-    fn from(d: Data) -> f64 {
-        let f_d = d.as_float();
+impl TryFrom<Data> for f64 {
+    type Error = String;
+
+    fn try_from(d: Data) -> Result<Self, Self::Error> {
+        let f_d = d.as_float()?;
         if let Data::Float(n) = f_d {
-            return n;
+            return Ok(n);
         } else {
             unreachable!()
         }
@@ -268,10 +272,10 @@ impl ExprTree {
                 let r = rhs.eval()?;
                 match op {
                     BinaryOp::Plus => l + r,
-                    BinaryOp::Minus => l - r, 
+                    BinaryOp::Minus => l - r,
                     BinaryOp::Mul => l * r,
                     BinaryOp::Exp => l.pow(r),
-                    BinaryOp::Div => l / r
+                    BinaryOp::Div => l / r,
                 }
             }
         }

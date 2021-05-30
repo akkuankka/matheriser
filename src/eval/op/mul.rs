@@ -1,5 +1,6 @@
 use crate::eval::{op::pow::Pow, Data, DivisibleBy, Radical, Symbolic};
 use crate::util::option::{Catch, OrMerge};
+use std::convert::TryFrom;
 use std::ops::Mul;
 
 impl Mul for Data {
@@ -55,7 +56,7 @@ impl Mul for Data {
                 }
                 // I can't think of any further improvements so I guess we just go
                 else {
-                    Self::Float(a.as_float() * b.as_float())
+                    Self::Float(a.as_float()? * b.as_float()?)
                 })
             }
             (Self::Symbol(a), Self::Symbol(b)) => Ok(Self::Symbolic(
@@ -136,8 +137,8 @@ impl Mul for Data {
                     )
                 }
             }, // now that all the single-type operations are done, the two sided ones
-            (Self::Float(flt), a) => Ok(Self::Float(flt * f64::from(a))), // get floats out of the way because they're bad
-            (a, Self::Float(flt)) => Ok(Self::Float(flt * f64::from(a))),
+            (Self::Float(flt), a) => Ok(Self::Float(flt * f64::try_from(a)?)), // get floats out of the way because they're bad
+            (a, Self::Float(flt)) => Ok(Self::Float(flt * f64::try_from(a)?)),
             (Self::Symbolic(syc), Self::Int(int)) | (Self::Int(int), Self::Symbolic(syc)) => {
                 Ok(Self::Symbolic(
                     //next symbolics because they're specific

@@ -1,4 +1,5 @@
-use crate::eval::{op::pow::Pow, Data, DivisibleBy, OrMerge, ratio_as_float, Radical, Symbolic};
+use crate::eval::{op::pow::Pow, ratio_as_float, Data, DivisibleBy, OrMerge, Radical, Symbolic};
+use std::convert::TryFrom;
 use std::ops::Add;
 
 impl Add for Data {
@@ -9,8 +10,8 @@ impl Add for Data {
             (Self::Int(lhs), Self::Rational(rhs)) => Ok(Self::Rational(rhs + lhs)),
             (Self::Rational(lhs), Self::Rational(rhs)) => Ok(Self::Rational(rhs + lhs)),
             (Self::Rational(lhs), Self::Int(rhs)) => Ok(Self::Rational(lhs + rhs)),
-            (Self::Float(lhs), a) => Ok(Self::Float(lhs + f64::from(a))),
-            (a, Self::Float(rhs)) => Ok(Self::Float(f64::from(a) + rhs)),
+            (Self::Float(lhs), a) => Ok(Self::Float(lhs + f64::try_from(a)?)),
+            (a, Self::Float(rhs)) => Ok(Self::Float(f64::try_from(a)? + rhs)),
             (Self::Symbol(sym), a) => Ok(Self::Symbolic(Box::new(Symbolic {
                 coeff: None,
                 symbol: sym,
@@ -73,7 +74,7 @@ impl Add for Data {
             }
             (Self::Radical(rad), Self::Int(int)) | (Self::Int(int), Self::Radical(rad)) => {
                 // assuming the radical is not illformed (i.e. shouldn't exist), this shouldn't yield a pretty radical, therefore it must go to a float ;-;
-                Ok(Self::Float(rad.as_float() + int as f64))
+                Ok(Self::Float(rad.as_float()? + int as f64))
             }
             (Self::Radical(lhs), Self::Radical(rhs)) => {
                 if lhs.index == rhs.index && lhs.radicand == rhs.radicand {
@@ -87,7 +88,8 @@ impl Add for Data {
                 else if lhs.index.divisible_by(rhs.index)
                     && lhs.radicand
                         == rhs
-                            .radicand.clone()
+                            .radicand
+                            .clone()
                             .pow(((lhs.index / rhs.index) as i64).into())?
                             .into()
                 {
@@ -101,7 +103,8 @@ impl Add for Data {
                 else if rhs.index.divisible_by(lhs.index)
                     && rhs.radicand
                         == lhs
-                            .radicand.clone()
+                            .radicand
+                            .clone()
                             .pow(((rhs.index / lhs.index) as i64).into())?
                             .into()
                 {
@@ -111,10 +114,13 @@ impl Add for Data {
                         radicand: rhs.radicand,
                     }))
                 } else {
-                    Ok(Self::Float(lhs.as_float() + rhs.as_float()))
+                    Ok(Self::Float(lhs.as_float()? + rhs.as_float()?))
                 }
             }
-            (Self::Radical(rad), Self::Rational(rat)) | (Self::Rational(rat), Self::Radical(rad)) => Ok(Self::Float(rad.as_float() + ratio_as_float(rat)))
+            (Self::Radical(rad), Self::Rational(rat))
+            | (Self::Rational(rat), Self::Radical(rad)) => {
+                Ok(Self::Float(rad.as_float()? + ratio_as_float(rat)))
+            }
         }
     }
 }

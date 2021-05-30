@@ -1,5 +1,6 @@
 use super::{op::pow::Pow, op::root::NthRoot, ratio_as_float, Data, DivisibleBy};
 use num::rational::Ratio;
+use std::convert::TryFrom;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Radical {
@@ -21,15 +22,16 @@ fn primes_to_k<'a>(k: u16) -> Vec<u16> {
 
 impl Radical {
     pub fn simplify(self) -> Result<Self, String> {
-        let possible_extractible_factors =
-            primes_to_k(f64::from(self.radicand.clone().nth_root(self.index as i64)?).ceil() as u16)
-                .iter()
-                .map(|x| (x.pow(self.index), *x as u16))
-            .filter(|x| {
-                let data = &*self.radicand;
-                data.divisible_by(x.1)
-            })
-            .collect();
+        let possible_extractible_factors = primes_to_k(
+            f64::try_from(self.radicand.clone().nth_root(self.index as i64)?)?.ceil() as u16,
+        )
+        .iter()
+        .map(|x| (x.pow(self.index), *x as u16))
+        .filter(|x| {
+            let data = &*self.radicand;
+            data.divisible_by(x.1)
+        })
+        .collect();
         self.simplify_by(possible_extractible_factors)
     }
 
@@ -56,6 +58,14 @@ impl Radical {
         }
         .simplify()
         .unwrap() // if this dies it's my fault
+    }
+
+    pub fn new_raw(coeff: Ratio<i64>, index: u32, radicand: Box<Data>) -> Self {
+        Self {
+            coefficient: coeff,
+            index,
+            radicand,
+        }
     }
 }
 
@@ -88,8 +98,11 @@ impl DivisibleBy<&Self> for Radical {
 }
 
 impl Radical {
-    pub fn as_float(self) -> f64 {
-        ratio_as_float(self.coefficient) * f64::from(*self.radicand).nth_root(self.index as f64)
+    pub fn as_float(self) -> Result<f64, String> {
+        Ok(ratio_as_float(self.coefficient)
+            * f64::try_from(*self.radicand)?
+                .nth_root(self.index as i64)
+                .ok_or("Even root of negative number")?)
     }
     pub fn conjugate(self) -> Result<Self, String> {
         Ok(Self::new(
