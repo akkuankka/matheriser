@@ -10,7 +10,7 @@ use std::ops::{Add, Div, Mul, Neg, Rem, Sub};
 
 mod op;
 mod ord;
-mod radical;
+pub mod radical;
 
 /// This is a symbolic expression, not like the ones in lisp,
 /// these are for dealing with symbolic numbers like pi and e
