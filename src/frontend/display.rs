@@ -19,7 +19,9 @@ impl Display for Data {
             }
             Data::Rational(a) => write!(f, "{}/{}", a.numer(), a.denom()),
             Data::Radical(a) => {
-                let coeff = if *a.coefficient.denom() == 1 {
+                let coeff = if a.coefficient == 1.into() {
+                    "".to_string()
+                } else if *a.coefficient.denom() == 1 {
                     a.coefficient.numer().to_string()
                 } else {
                     format!("{}", Data::Rational(a.coefficient))
@@ -48,10 +50,86 @@ impl AsUtf8 for String {
             "e" | "E" => "e",
             "phi" | "Phi" => "ϕ",
             "sqrt2" | "root2" => "√",
-            l => l
+            l => l,
         }
         .to_string()
     }
 }
 
+/// A Data-Exponent pair such as (√3)^2
+#[derive(PartialEq, PartialOrd)]
+struct DFactor {
+    val: Data,
+    exponent: u32,
+}
 
+impl From<Data> for DFactor {
+    fn from(data: Data) -> Self {
+        DFactor {
+            val: data,
+            exponent: 1,
+        }
+    }
+}
+
+use std::collections::HashMap;
+
+struct FactorChain {
+    symbol_map: HashMap<String, u32>,
+    data_factors: Vec<DFactor>,
+}
+
+/// this function primarily exists because I cannot be bothered writing a trait
+fn insert_or_inc_factor(factors: &mut Vec<DFactor>, insert: Data) {
+    let factor_to_add: DFactor = insert.into();
+    if insert == Data::Int(1) {
+    } else if let Ok(i) =
+        factors.binary_search_by(|&factor| match factor.partial_cmp(&factor_to_add) {
+            Some(ord) => ord,
+            None => std::cmp::Ordering::Less,
+        })
+    {
+        factors.push(factor_to_add);
+        factors.swap_remove(i);
+    } else {
+        factors.push(factor_to_add);
+    }
+}
+
+fn insert_or_inc_symbol(symbols: &mut HashMap<String, u32>, s: String) {
+    if symbols.contains_key(&s) {
+        if let Some(val) = symbols.get_mut(&s) {
+            *val += 1;
+        }
+    } else {
+        symbols.insert(s, 1);
+    }
+}
+
+impl FactorChain {
+    fn add(&mut self, data: Data) {
+        match data {
+            Data::Int(_) | Data::Float(_) | Data::Rational(_) => {
+                insert_or_inc_factor(&mut self.data_factors, data)
+            }
+            Data::Symbol(s) => insert_or_inc_symbol(&mut self.symbol_map, s),
+            Data::Radical(rad) => {
+                let coeff = Data::Rational(rad.coefficient);
+                let rest = Data::Radical(Radical {
+                    coefficient: 1.into(),
+                    ..rad
+                });
+                insert_or_inc_factor(&mut self.data_factors, coeff);
+                insert_or_inc_factor(&mut self.data_factors, rest);
+            }
+            Data::Symbolic(s) => {
+                if let None = s.constant {
+                    insert_or_inc_symbol(&mut self.symbol_map, s.symbol);
+                    insert_or_inc_factor(&mut self.data_factors, s.coeff.unwrap_or(Data::Int(1)))
+                } else {
+                    insert_or_inc_factor(&mut self.data_factors, Data::Symbolic(s))
+                }
+            }
+        }
+    }
+}

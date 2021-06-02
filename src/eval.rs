@@ -16,9 +16,9 @@ pub mod radical;
 /// these are for dealing with symbolic numbers like pi and e
 #[derive(Clone, Debug, PartialEq)]
 pub struct Symbolic {
-    coeff: Option<Data>,
-    symbol: String,
-    constant: Option<Data>,
+    pub coeff: Option<Data>,
+    pub symbol: String,
+    pub constant: Option<Data>,
 }
 
 impl DivisibleBy<&Data> for Symbolic {
