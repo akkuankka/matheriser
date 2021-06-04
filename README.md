@@ -14,8 +14,8 @@ Data & maths operation
 
 Functionality
 - [x] Write evaluator function
-- [ ] Write display/printout functions
-- [ ] Write cmdline frontend
+- [x] Write display/printout functions
+- [x] Write cmdline frontend
 
 Further Features
 - [ ] Implement syntax for non-typable functions (i.e. log, roots)
