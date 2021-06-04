@@ -260,7 +260,7 @@ impl TryFrom<Data> for f64 {
 
 // this is the bit that actually does the maths
 impl ExprTree {
-    fn eval(self) -> Result<Data, String> {
+    pub fn eval(self) -> Result<Data, String> {
         match self {
             ExprTree::Val(k) => Ok(k),
             ExprTree::UNode(op, t) => match op {
