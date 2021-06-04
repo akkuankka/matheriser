@@ -10,7 +10,7 @@ pub struct CommandLine<'m, 'k: 'm> {
 impl<'m, 'k> CommandLine<'m, 'k> {
     const prompt_text: &'static [u8] = b"matherise >";
 
-    fn new(manifest: &'m HashMap<&'k str, String>) -> Self {
+    pub fn new(manifest: &'m HashMap<&'k str, String>) -> Self {
         CommandLine {
             preamble: true,
             manifest: manifest,

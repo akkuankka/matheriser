@@ -1,12 +1,19 @@
 #![feature(negative_impls)]
 
+use std::fs::File;
+use std::io::prelude::*;
+use std::path::Path;
+use colored::Colorize;
+
 use ron::de::from_str;
 use serde::Deserialize;
 use std::collections::HashMap;
+
 mod parser;
 mod eval;
 mod util;
 mod frontend;
+use frontend::{CommandLine, Frontend};
 fn main() {
     // first, get the localisation file from disk
     let manifest_path = Path::new("assets/en_uk.ron");
@@ -30,5 +37,13 @@ fn main() {
         }
         Ok(map) => map
     };
+    let frontend = CommandLine::new(&manifest);
+    if let Err(reason) = frontend.run() {
+        println!("{}", reason);
+        std::process::exit(1);
+    };
+
+    println!("{}", "goodbye!".green())
+
 
 }
