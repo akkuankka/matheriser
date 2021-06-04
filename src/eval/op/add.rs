@@ -1,4 +1,5 @@
-use crate::eval::{op::pow::Pow, Data, DivisibleBy, OrMerge, Radical, Symbolic};
+use crate::eval::{op::pow::Pow, ratio_as_float, Data, DivisibleBy, OrMerge, Radical, Symbolic};
+use std::convert::TryFrom;
 use std::ops::Add;
 
 impl Add for Data {
@@ -9,17 +10,17 @@ impl Add for Data {
             (Self::Int(lhs), Self::Rational(rhs)) => Ok(Self::Rational(rhs + lhs)),
             (Self::Rational(lhs), Self::Rational(rhs)) => Ok(Self::Rational(rhs + lhs)),
             (Self::Rational(lhs), Self::Int(rhs)) => Ok(Self::Rational(lhs + rhs)),
-            (Self::Float(lhs), _) => Ok(Self::Float(lhs + f64::from(rhs))),
-            (_, Self::Float(rhs)) => Ok(Self::Float(f64::from(self) + rhs)),
-            (Self::Symbol(sym), _) => Ok(Self::Symbolic(Box::new(Symbolic {
+            (Self::Float(lhs), a) => Ok(Self::Float(lhs + f64::try_from(a)?)),
+            (a, Self::Float(rhs)) => Ok(Self::Float(f64::try_from(a)? + rhs)),
+            (Self::Symbol(sym), a) => Ok(Self::Symbolic(Box::new(Symbolic {
                 coeff: None,
                 symbol: sym,
-                constant: Some(rhs),
+                constant: Some(a),
             }))),
-            (_, Self::Symbol(sym)) => Ok(Self::Symbolic(Box::new(Symbolic {
+            (a, Self::Symbol(sym)) => Ok(Self::Symbolic(Box::new(Symbolic {
                 coeff: None,
                 symbol: sym,
-                constant: Some(self),
+                constant: Some(a),
             }))),
             (Self::Symbolic(lcontent), Self::Symbolic(rcontent)) => {
                 let Symbolic {
@@ -31,7 +32,7 @@ impl Add for Data {
                     coeff: rcoeff,
                     symbol: rsymbol,
                     constant: rconstant,
-                } = *rcontent;
+                } = *rcontent.clone();
                 if lsymbol == rsymbol {
                     Ok(Self::Symbolic(Box::new(Symbolic {
                         coeff: lcoeff.or_merge(|a, b| a + b, Ok(rcoeff))?,
@@ -47,7 +48,7 @@ impl Add for Data {
                     })))
                 }
             }
-            (Self::Symbolic(content), _) => {
+            (Self::Symbolic(content), a) => {
                 let Symbolic {
                     coeff,
                     symbol,
@@ -56,10 +57,10 @@ impl Add for Data {
                 Ok(Self::Symbolic(Box::new(Symbolic {
                     coeff,
                     symbol,
-                    constant: constant.or_merge(|a, b| a + b, Ok(Some(rhs)))?,
+                    constant: constant.or_merge(|a, b| a + b, Ok(Some(a)))?,
                 })))
             }
-            (_, Self::Symbolic(content)) => {
+            (a, Self::Symbolic(content)) => {
                 let Symbolic {
                     coeff,
                     symbol,
@@ -68,12 +69,12 @@ impl Add for Data {
                 Ok(Self::Symbolic(Box::new(Symbolic {
                     coeff,
                     symbol,
-                    constant: constant.or_merge(|a, b| a + b, Ok(Some(self)))?,
+                    constant: constant.or_merge(|a, b| a + b, Ok(Some(a)))?,
                 })))
             }
             (Self::Radical(rad), Self::Int(int)) | (Self::Int(int), Self::Radical(rad)) => {
                 // assuming the radical is not illformed (i.e. shouldn't exist), this shouldn't yield a pretty radical, therefore it must go to a float ;-;
-                Ok(Self::Float(rad.as_float() + int as f64))
+                Ok(Self::Float(rad.as_float()? + int as f64))
             }
             (Self::Radical(lhs), Self::Radical(rhs)) => {
                 if lhs.index == rhs.index && lhs.radicand == rhs.radicand {
@@ -88,6 +89,7 @@ impl Add for Data {
                     && lhs.radicand
                         == rhs
                             .radicand
+                            .clone()
                             .pow(((lhs.index / rhs.index) as i64).into())?
                             .into()
                 {
@@ -102,6 +104,7 @@ impl Add for Data {
                     && rhs.radicand
                         == lhs
                             .radicand
+                            .clone()
                             .pow(((rhs.index / lhs.index) as i64).into())?
                             .into()
                 {
@@ -111,8 +114,12 @@ impl Add for Data {
                         radicand: rhs.radicand,
                     }))
                 } else {
-                    Ok(Self::Float(lhs.as_float() + rhs.as_float()))
+                    Ok(Self::Float(lhs.as_float()? + rhs.as_float()?))
                 }
+            }
+            (Self::Radical(rad), Self::Rational(rat))
+            | (Self::Rational(rat), Self::Radical(rad)) => {
+                Ok(Self::Float(rad.as_float()? + ratio_as_float(rat)))
             }
         }
     }
