@@ -9,6 +9,7 @@ edition = "2018"
 [dependencies]
 logos = "0.12.0"
 num = "0.4.0"
+colored = "2"
 
 [dev-dependencies]
 rand = "0.8.3"

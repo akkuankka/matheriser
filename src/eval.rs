@@ -10,15 +10,15 @@ use std::ops::{Add, Div, Mul, Neg, Rem, Sub};
 
 mod op;
 mod ord;
-mod radical;
+pub mod radical;
 
 /// This is a symbolic expression, not like the ones in lisp,
 /// these are for dealing with symbolic numbers like pi and e
 #[derive(Clone, Debug, PartialEq)]
 pub struct Symbolic {
-    coeff: Option<Data>,
-    symbol: String,
-    constant: Option<Data>,
+    pub coeff: Option<Data>,
+    pub symbol: String,
+    pub constant: Option<Data>,
 }
 
 impl DivisibleBy<&Data> for Symbolic {
@@ -260,7 +260,7 @@ impl TryFrom<Data> for f64 {
 
 // this is the bit that actually does the maths
 impl ExprTree {
-    fn eval(self) -> Result<Data, String> {
+    pub fn eval(self) -> Result<Data, String> {
         match self {
             ExprTree::Val(k) => Ok(k),
             ExprTree::UNode(op, t) => match op {
