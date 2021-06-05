@@ -17,8 +17,8 @@ mod frontend;
 use frontend::{CommandLine, Frontend};
 fn main() {
     // first, get the localisation file from disk
-    let manifest_path = Path::new("assets/en_uk.ron");
-    let manifest_file = match File::open(manifest_path) {
+    let manifest_path = Path::new("assets/en-uk.ron");
+    let mut manifest_file = match File::open(manifest_path) {
         Err(reason) => {
             println!("{}", format!("Aborting: could not open file -- {}", reason).red());
             std::process::exit(1);
@@ -38,7 +38,7 @@ fn main() {
         }
         Ok(map) => map
     };
-    let frontend = CommandLine::new(&manifest);
+    let mut frontend = CommandLine::new(&manifest);
     if let Err(reason) = frontend.run() {
         println!("{}", reason);
         std::process::exit(1);
