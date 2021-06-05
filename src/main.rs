@@ -1,4 +1,5 @@
 #![feature(negative_impls)]
+#![feature(drain_filter)]
 
 use std::fs::File;
 use std::io::prelude::*;
