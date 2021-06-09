@@ -26,12 +26,13 @@ impl Display for Data {
                 } else {
                     format!("{}", Data::Rational(a.coefficient))
                 };
-                let index = if a.index == 2 {
-                    ""
+                let index = a.index;
+                let index_str = if index == 2 {
+                    "".to_string()
                 } else {
-                    format!("`{}`", a.index.to_string())
+                    index.to_string()
                 };
-                write!(f, "({}) {}√({})", coeff, index, a.radicand)
+                write!(f, "({}) {}√({})", coeff, index_str, a.radicand)
             }
             Data::Symbol(a) => write!(f, "{}", a.as_utf8()),
             Data::Symbolic(a) => write!(f, "{}", a),
@@ -81,10 +82,11 @@ struct FactorChain {
 
 /// this function primarily exists because I cannot be bothered writing a trait
 fn insert_or_inc_factor(factors: &mut Vec<DFactor>, insert: Data) {
+    let is_one = insert == Data::Int(1);
     let factor_to_add: DFactor = insert.into();
-    if insert == Data::Int(1) {
+    if is_one {
     } else if let Ok(i) =
-        factors.binary_search_by(|&factor| match factor.partial_cmp(&factor_to_add) {
+        factors.binary_search_by(|factor| match factor.partial_cmp(&factor_to_add) {
             Some(ord) => ord,
             None => std::cmp::Ordering::Less,
         })
@@ -141,21 +143,17 @@ impl FactorChain {
     }
 
     fn condense_linears(&mut self) {
-        let mut simple_linears = Data::Int(1);
-        for (i, factor) in self.data_factors.iter().enumerate() {
-            if factor.exponent == 1 {
-                simple_linears = (simple_linears * self.data_factors.remove(i).val).unwrap_or(simple_linears)
-            }
-        }
-        self.data_factors.push( DFactor { exponent: 1, val: simple_linears})
+        let simple_linears_extracted = self.data_factors.drain_filter(|factor| factor.exponent == 1).map(|x| x.val).reduce(|x, y| (x * y).unwrap_or(Data::from(0)));
+        if let Some(linears) = simple_linears_extracted {
+            self.data_factors.push( DFactor { exponent: 1, val: linears})}
     }
 }
 
 impl Display for Symbolic {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let mut l_factor_chain = FactorChain::new();
-        l_factor_chain.add(Data::from(self.symbol));
-        let mut l_working = self.coeff.unwrap_or(Data::Int(1));
+        l_factor_chain.add(Data::from(self.symbol.clone()));
+        let mut l_working = self.coeff.clone().unwrap_or(Data::Int(1));
         loop {
             if let Data::Symbolic(a) = l_working {
                 if a.constant == None {
@@ -172,10 +170,10 @@ impl Display for Symbolic {
             }
         }
         let mut r_factor_chain = FactorChain::new();
-        if let Some(a) = self.constant {
+        if let Some(a) = self.constant.clone() {
             let mut r_working = a;
             loop {
-                if let Data::Symbolic(a) = l_working {
+                if let Data::Symbolic(a) = r_working {
                     if a.constant == None {
                         r_working = a.coeff.unwrap_or(Data::Int(1));
                         r_factor_chain.add(Data::Symbol(a.symbol));
@@ -193,17 +191,17 @@ impl Display for Symbolic {
         r_factor_chain.condense_linears();
         l_factor_chain.condense_linears();
         let mut l_symbol_factors: Vec<(String, u32)> = l_factor_chain.symbol_map.into_iter().collect::<Vec<(String, u32)>>(); // sort all of the symbol factors
-        l_symbol_factors.sort_unstable_by(|&(a, _), &(b, _)| a.cmp(&b));
+        l_symbol_factors.sort_unstable_by(|(a, _), (b, _)| a.cmp(&b));
         let mut r_symbol_factors: Vec<(String, u32)> = r_factor_chain.symbol_map.into_iter().collect::<Vec<(String, u32)>>(); // sort all of the symbol factors
-        r_symbol_factors.sort_unstable_by(|&(a, _), &(b, _)| a.cmp(&b));
+        r_symbol_factors.sort_unstable_by(|(a, _), (b, _)| a.cmp(&b));
 
         fn stringify_symbol_chain(input: &[(String, u32)]) -> String {
-            let output = String::new();
+            let mut output = String::new();
             for (symb, exp) in input {
                 if *exp == 1 {
                     output.push_str(&symb)
                 } else {
-                    output.push_str(format!("({}^{})", symb, exp))
+                    output.push_str(format!("({}^{})", symb, exp).as_str())
                 }
             }
             output
@@ -215,11 +213,11 @@ impl Display for Symbolic {
             let mut output = String::new();
             for i in input {
                 if Some(i) == input.first() {
-                    output.push_str(format!("({})^{}", i.val, i.exponent))
+                    output.push_str(format!("({})^{}", i.val, i.exponent).as_str())
                 } else if Some(i) == input.last() {
-                    output.push_str(format!("{} × ", i.val))
+                    output.push_str(format!("{} × ", i.val).as_str())
                 } else {
-                    output.push_str(format!("({})^{} ×", i.val, i.exponent))
+                    output.push_str(format!("({})^{} ×", i.val, i.exponent).as_str())
                 }
 
             }
