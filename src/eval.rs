@@ -3,10 +3,10 @@ use crate::{
     util::option::{Catch, OrMerge},
 };
 use num::rational::Ratio;
-use op::{pow::Pow, root::NthRoot};
+use op::pow::Pow;
 use radical::Radical;
 use std::convert::{TryFrom, TryInto};
-use std::ops::{Add, Div, Mul, Neg, Rem, Sub};
+use std::ops::{Mul, Rem};
 
 mod op;
 mod ord;

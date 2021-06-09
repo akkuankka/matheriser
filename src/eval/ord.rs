@@ -98,7 +98,7 @@ impl std::cmp::PartialOrd for Data {
                                 unreachable!()
                             }
                         }
-                        (None, Some(c)) => other.partial_cmp(&self).map(|o| o.reverse()),
+                        (None, Some(_)) => other.partial_cmp(&self).map(|o| o.reverse()),
                         (Some(c), Some(d)) => {
                             let c = c.clone();
                             let d = d.clone();

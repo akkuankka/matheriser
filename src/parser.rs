@@ -39,11 +39,6 @@ struct Parser {
     stack: Vec<Token>,
 }
 
-enum ParseError {
-    NoTokensLeft,
-    Msg(Box<String>),
-}
-
 impl Parser {
     fn new(tok: Vec<Token>) -> Self {
         let mut tok = tok;
@@ -88,6 +83,7 @@ impl Parser {
         result
     }
 
+    #[allow(dead_code)] // We're going to use this later to do parsing of custom functions I think
     fn is_word(&self) -> bool {
         match self.current {
             Token::Word(_) => true,
@@ -95,17 +91,17 @@ impl Parser {
         }
     }
 
-    fn expect(&self, tok: &Token) -> Result<(), String> {
-        if !(self.current == *tok) {
-            Err(format!("Expected token {:?}, got {:?}", self.current, tok))
-        } else {
-            Ok(())
-        }
-    }
+    // fn expect(&self, tok: &Token) -> Result<(), String> {
+    //     if !(self.current == *tok) {
+    //         Err(format!("Expected token {:?}, got {:?}", self.current, tok))
+    //     } else {
+    //         Ok(())
+    //     }
+    // }
     /// if the token is what we asked for, go next
     fn consume(&mut self, tok: &Token) -> bool {
         if self.test(&tok) {
-            self.next();
+            let _= self.next(); // we know this is fine because test is true
             true
         } else {
             false
@@ -238,7 +234,7 @@ fn parse_subexpression(p: &mut Parser) -> Result<ExprTree, String> {
             Ok(ExprTree::make_unary_node(op, recognise(q, p)?))
         }
         Token::Operator('(') => {
-            p.next();
+            let _ = p.next(); // we know this is safe to do because we know current is something
             let t = recognise(0, p);
             p.require(Token::Operator(')'))?;
             t
