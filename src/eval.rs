@@ -1,6 +1,7 @@
 use crate::{
     parser::{BinaryOp, ExprTree, UnaryOp},
     util::option::{Catch, OrMerge},
+    eval::op::calculate_fn::CalculateFn
 };
 use num::rational::Ratio;
 use op::pow::Pow;
@@ -265,7 +266,7 @@ impl ExprTree {
             ExprTree::Val(k) => Ok(k),
             ExprTree::UNode(op, t) => match op {
                 UnaryOp::Neg => t.eval().map(|x| -x),
-                UnaryOp::Word(_) => Err("Word functions are currently not supported".to_string()),
+                UnaryOp::Word(w) => t.eval().and_then(|x| x.calculate_fn(&w))
             },
             ExprTree::BNode(op, lhs, rhs) => {
                 let l = lhs.eval()?;
