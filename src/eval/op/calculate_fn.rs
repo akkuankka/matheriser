@@ -1,4 +1,5 @@
 mod trig;
+mod logs;
 use crate::eval::Data;
 use std::convert::TryFrom;
 
@@ -20,6 +21,8 @@ enum FunctionKind {
     Sin,
     Cos,
     Tan,
+    Log10,
+    Ln
 }
 
 impl TryFrom<&String> for FunctionKind {
@@ -29,6 +32,8 @@ impl TryFrom<&String> for FunctionKind {
             "sin" => Self::Sin,
             "cos" => Self::Cos,
             "tan" => Self::Tan,
+            "log" => Self::Log10,
+            "ln" => Self::Ln,
             unknown => {return Err(format!("unknown function: {}", unknown))}
         })
     }
@@ -43,6 +48,8 @@ impl FunctionKind {
             Self::Sin => |x| self::trig::sin(x),
             Self::Cos => |x| self::trig::cos(x),
             Self::Tan => |x| self::trig::tan(x),
+            Self::Ln => |x| self::logs::natural_log(x),
+            Self::Log10 => |x| self::logs::log_10(x),
         }
     }
 }
