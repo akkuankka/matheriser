@@ -90,18 +90,26 @@ fn main() {
 
 
 const LANGUAGES_MANIFEST: &'static str = include_str!("../assets/manifest.ron");
+use directories::ProjectDirs;
+use std::path::PathBuf;
 
 fn get_localisation<'a>(query: &String, locbuffer: &'a mut String) -> HashMap<&'a str, String> {
     let manifest: Vec<&str> = match from_str(LANGUAGES_MANIFEST) {
         Err(reason) => {
-            eprintln!("{}", format!("Aborting: could not open localisation file -- {}", reason).red());
+            eprintln!("{}", format!("Aborting: could not parse the languages manifest -- {}", reason).red());
             crash()
         }
         Ok(list) => list
     };
+    let project_dirs = if let Some(pd) = ProjectDirs::from("", "", "matheriser") {
+        pd
+    } else {
+        eprintln!("{}", "Aborting: could not get localisation folder location".red());
+        crash()
+    };
     if manifest.contains(&&**query) {
         // let localisation_file_path = Path::new(&format!{"assets/{}.ron", query});
-        let mut localisation_file = match File::open(&Path::new(&format!{"assets/{}.ron", query})) {
+        let mut localisation_file = match File::open(project_dirs.data_local_dir().join(PathBuf::from(format!("assets/{}.ron", query)))) {
             Err(reason) => {
                 eprintln!(
                     "{}",
