@@ -5,5 +5,6 @@ pub mod div;
 pub mod pow;
 pub mod neg;
 pub mod root;
+pub mod calculate_fn;
 
 
