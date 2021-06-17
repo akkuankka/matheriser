@@ -18,7 +18,10 @@ enum Token {
     #[regex(r"[\(\)\*\+-/\^]", |lex| lex.slice().chars().nth(0))]
     Operator(char),
 
-    #[regex(r":[a-zA-z]+", |lex| lex.slice()[1..].to_string())]
+    #[regex(r":[a-zA-Z]+", |lex| {
+        let thing = lex.slice()[1..].to_string();
+        thing
+    })]
     Symbol(String),
 
     #[regex(r"[a-zA-Z]+", |lex| lex.slice().to_string())]
@@ -101,7 +104,7 @@ impl Parser {
     /// if the token is what we asked for, go next
     fn consume(&mut self, tok: &Token) -> bool {
         if self.test(&tok) {
-            let _= self.next(); // we know this is fine because test is true
+            let _ = self.next(); // we know this is fine because test is true
             true
         } else {
             false
@@ -177,7 +180,6 @@ pub enum ExprTree {
     BNode(BinaryOp, Box<ExprTree>, Box<ExprTree>),
 }
 
-
 impl ExprTree {
     fn make_leaf(tok: &Token) -> Result<Self, String> {
         match tok {
@@ -239,9 +241,9 @@ fn parse_subexpression(p: &mut Parser) -> Result<ExprTree, String> {
             p.require(Token::Operator(')'))?;
             t
         }
-        Token::FNumber(_) 
-        | Token::INumber(_)
-        | Token::Symbol(_) => Ok(ExprTree::make_leaf(&p.pop()?)?),
+        Token::FNumber(_) | Token::INumber(_) | Token::Symbol(_) => {
+            Ok(ExprTree::make_leaf(&p.pop()?)?)
+        }
         _ => Err(format!(
             "Got an unexpected token: {:?}, rest of stack is {:?}",
             p.current, p.stack
