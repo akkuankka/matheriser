@@ -1,6 +1,6 @@
 [package]
 name = "matheriser"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["akkuankka <cwmckenzie02@gmail.com>"]
 edition = "2018"
 license = "Hippocratic-2.1"
@@ -28,4 +28,3 @@ assets = [
        ["README.md", "/usr/share/doc/matheriser/README", "644"],
        ["assets/*.ron", "/usr/share/matheriser/assets/", "644"],
 ]
-
