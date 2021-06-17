@@ -26,6 +26,6 @@ rand = "0.8.3"
 assets = [
        ["target/release/matheriser", "/usr/bin/", "755"],
        ["README.md", "/usr/share/doc/matheriser/README", "644"],
-       ["assets/*.ron", "/usr/share/matheriser/", "644"],
+       ["assets/*.ron", "/usr/share/matheriser/assets/", "644"],
 ]
 
