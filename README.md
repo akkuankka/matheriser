@@ -7,11 +7,15 @@
 * Currently only a terminal interface, with scope for a GUI later down the line
 
 ## Installing
-Currently the way to get a matheriser is to build it from source by cloning the github repository
 
+If you can install Debian packages on your system, grab the deb package from Releases, and install it with `sudo dpkg -i matheriser-VERSION-ARCHITECTURE.deb`
+Or you can use a graphical deb client like Eddy.
+
+Otherwise, the way to get a matheriser is to build it from source by cloning the github repository
+### Building
 You need a rust installation to build it, so if you don't have one (If you don't know what that is then you don't have one), follow the directions [here](https://rustup.rs/)
 
-### Linux, Mac, WSL (BSD?)
+#### Linux, Mac, WSL (BSD?)
 
 In a terminal, go to a directory you don't mind a mess, and `git clone` [this repository](https://github.com/akkuankka/matheriser) like so:
 ```bash
@@ -29,7 +33,7 @@ $ chmod +x ./*.sh
 ```
 which will make all of the install scripts executable.
 
-### Windows
+#### Windows
 
 If you don't have git for windows you can get it [here](https://gitforwindows.org/).
 Then open up a CMD window, a Powershell window, or a Git Bash window (Comes with git for windows), or Windows Terminal if you have it, type the command
