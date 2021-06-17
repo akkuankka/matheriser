@@ -101,15 +101,19 @@ fn get_localisation<'a>(query: &String, locbuffer: &'a mut String) -> HashMap<&'
         }
         Ok(list) => list
     };
-    let project_dirs = if let Some(pd) = ProjectDirs::from("", "", "matheriser") {
-        pd
-    } else {
-        eprintln!("{}", "Aborting: could not get localisation folder location".red());
-        crash()
-    };
     if manifest.contains(&&**query) {
         // let localisation_file_path = Path::new(&format!{"assets/{}.ron", query});
-        let mut localisation_file = match File::open(project_dirs.data_local_dir().join(PathBuf::from(format!("assets/{}.ron", query)))) {
+        let localisation_file_path = match seek_get_localisation_file() {
+            Ok(p) => p,
+            Err(reason) => {
+                eprintln!(
+                    "{}",
+                    format!("Aborting: could not open file -- {}", reason).red()
+                );
+                std::process::exit(1);
+            }
+        };
+        let mut localisation_file = match File::open(localisation_file_path.join(PathBuf::from(format!("{}.ron", query)))) {
             Err(reason) => {
                 eprintln!(
                     "{}",
@@ -143,6 +147,27 @@ fn get_localisation<'a>(query: &String, locbuffer: &'a mut String) -> HashMap<&'
         eprintln!("Aborting: language {} not found", query);
         crash()
     }
+}
+
+fn seek_get_localisation_file() -> Result<PathBuf, String> {
+    let os = std::env::consts::OS; 
+    let linux_systemwide_dir: PathBuf = PathBuf::from("/usr/share/matheriser/assets/");
+    if os != "macos" && os != "windows" {
+        if linux_systemwide_dir.exists() {
+            return Ok(linux_systemwide_dir)
+        }
+    }
+    if let Some(pd) = ProjectDirs::from("", "", "matheriser") {
+        let path = pd.data_local_dir().join(PathBuf::from("assets"));
+        if path.exists() {
+            Ok(path)
+        } else {
+            Err("Error: Localisation path does not exist".to_string())
+        }
+    } else {
+        Err("Error: Could not find the localisation directory".to_string())
+    }
+
 }
 
 
