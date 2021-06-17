@@ -42,6 +42,7 @@ From there, go into the folder `Local` and then create a folder matheriser, then
 
 You should now be able to run matheriser from a terminal by typing in `matheriser` at the command prompt
 
+
 ## Where to next:
 - [ ] Make a package
 - [ ] A TUI frontend
