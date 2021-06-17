@@ -21,3 +21,11 @@ directories = "3.0.2"
 
 [dev-dependencies]
 rand = "0.8.3"
+
+[package.metadata.deb]
+assets = [
+       ["target/release/matheriser", "/usr/bin/", "755"],
+       ["README.md", "/usr/share/doc/matheriser/README", "644"],
+       ["assets/*.ron", "/usr/share/matheriser/", "644"],
+]
+
