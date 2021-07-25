@@ -1,9 +1,9 @@
-use crate::eval::{op::pow::Pow, ratio_as_float, Data, SymbolEval, Symbolic};
+use crate::eval::{op::pow::Pow, ratio_as_float, Number, SymbolEval, Symbolic};
 use num::integer::lcm;
 use num::rational::Ratio;
 use std::cmp::Ordering;
 
-impl std::cmp::PartialOrd for Data {
+impl std::cmp::PartialOrd for Number {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         match (&self, &other) {
             (Self::Int(a), Self::Int(b)) => Some(a.cmp(b)),
@@ -29,11 +29,11 @@ impl std::cmp::PartialOrd for Data {
                     symbol,
                     constant,
                 } = *a.clone();
-                let should_flip = coeff.as_ref().unwrap_or(&Self::Int(1)) < &Data::from(0);
+                let should_flip = coeff.as_ref().unwrap_or(&Self::Int(1)) < &Number::from(0);
                 Self::Symbol(symbol)
                     .partial_cmp(
-                        &((Self::Int(*b) - constant.unwrap_or(Data::Int(0))).ok()?
-                            / coeff.unwrap_or(Data::Int(1)))
+                        &((Self::Int(*b) - constant.unwrap_or(Number::Int(0))).ok()?
+                            / coeff.unwrap_or(Number::Int(1)))
                         .ok()?,
                     )
                     .map(|o| if should_flip { o.reverse() } else { o })
@@ -54,7 +54,7 @@ impl std::cmp::PartialOrd for Data {
             (Self::Symbol(a), Self::Symbolic(b)) => {
                 if (a == &b.symbol) && b.constant == None {
                     // symbol can be factored out
-                    Data::Int(1).partial_cmp(&(b.coeff.clone().unwrap_or(Data::Int(1))))
+                    Number::Int(1).partial_cmp(&(b.coeff.clone().unwrap_or(Number::Int(1))))
                 } else {
                     a.symbol_eval()
                         .ok()?
@@ -70,11 +70,11 @@ impl std::cmp::PartialOrd for Data {
                         // keeping in mind that we're assuming our symbols are positive (this means symbols can't be used for variables)
                         (None, None) => a
                             .coeff
-                            .unwrap_or(Data::Int(1))
-                            .partial_cmp(&b.coeff.unwrap_or(Data::Int(1))),
+                            .unwrap_or(Number::Int(1))
+                            .partial_cmp(&b.coeff.unwrap_or(Number::Int(1))),
                         (Some(c), None) => {
-                            let m = a.coeff.unwrap_or(Data::Int(1));
-                            let n = b.coeff.unwrap_or(Data::Int(1));
+                            let m = a.coeff.unwrap_or(Number::Int(1));
+                            let n = b.coeff.unwrap_or(Number::Int(1));
 
                             if (m > n) && (c >= &0.into()) {
                                 Some(Ordering::Greater)
@@ -102,9 +102,9 @@ impl std::cmp::PartialOrd for Data {
                         (Some(c), Some(d)) => {
                             let c = c.clone();
                             let d = d.clone();
-                            let m = a.coeff.clone().unwrap_or(Data::Int(1));
-                            let n = b.coeff.clone().unwrap_or(Data::Int(1));
-                            let x = Data::from(a.symbol.clone());
+                            let m = a.coeff.clone().unwrap_or(Number::Int(1));
+                            let n = b.coeff.clone().unwrap_or(Number::Int(1));
+                            let x = Number::from(a.symbol.clone());
                             if (m == n) && (c == d) {
                                 Some(Ordering::Equal)
                             } else if (x.clone() * (m.clone() - n.clone()).ok()?).ok()?
@@ -170,15 +170,15 @@ impl std::cmp::PartialOrd for Data {
                     let k = lcm(a.index, b.index) as i32; // lowest common multiple of the indices
                     let m = a.coefficient.abs();
                     let n = b.coefficient.abs();
-                    let lhs = { |x: Data| if lneg { -x } else { x } }(
+                    let lhs = { |x: Number| if lneg { -x } else { x } }(
                         // flip if negative
                         (Self::Rational(m.pow(k))
-                            * a.radicand.pow(Data::from(k as i64 / a.index as i64)).ok()?)
+                            * a.radicand.pow(Number::from(k as i64 / a.index as i64)).ok()?)
                         .ok()?,
                     );
-                    let rhs = { |x: Data| if rneg { -x } else { x } }(
+                    let rhs = { |x: Number| if rneg { -x } else { x } }(
                         (Self::Rational(n.pow(k))
-                            * b.radicand.pow(Data::from(k as i64 / b.index as i64)).ok()?)
+                            * b.radicand.pow(Number::from(k as i64 / b.index as i64)).ok()?)
                         .ok()?,
                     );
                     lhs.partial_cmp(&rhs)
@@ -201,11 +201,11 @@ impl std::cmp::PartialOrd for Data {
                     symbol,
                     constant,
                 } = *a.clone();
-                let should_flip = coeff.as_ref().unwrap_or(&Self::Int(1)) < &Data::from(0);
+                let should_flip = coeff.as_ref().unwrap_or(&Self::Int(1)) < &Number::from(0);
                 Self::Symbol(symbol)
                     .partial_cmp(
-                        &((Self::Rational(*b) - constant.unwrap_or(Data::Int(0))).ok()?
-                            / coeff.unwrap_or(Data::Int(1)))
+                        &((Self::Rational(*b) - constant.unwrap_or(Number::Int(0))).ok()?
+                            / coeff.unwrap_or(Number::Int(1)))
                         .ok()?,
                     )
                     .map(|o| if should_flip { o.reverse() } else { o })
@@ -237,7 +237,7 @@ impl Abs for Ratio<i64> {
 
 #[cfg(test)]
 mod test {
-    use crate::eval::{radical::Radical, Data, Symbolic};
+    use crate::eval::{radical::Radical, Number, Symbolic};
     use num::rational::Ratio;
     use rand::Rng;
     #[test]
@@ -251,33 +251,33 @@ mod test {
             }
             assert_eq!(
                 i.partial_cmp(&(i * k)),
-                Data::from(i).partial_cmp(&Data::from(i * k))
+                Number::from(i).partial_cmp(&Number::from(i * k))
             )
         }
     }
     #[test]
     fn roots() {
         assert!(
-            Data::Radical(Radical::new(3.into(), 2, Data::from(2).into())).partial_cmp(
-                &Data::Radical(Radical::new(4.into(), 2, Data::from(2).into()))
+            Number::Radical(Radical::new(3.into(), 2, Number::from(2).into())).partial_cmp(
+                &Number::Radical(Radical::new(4.into(), 2, Number::from(2).into()))
             ) == Some(std::cmp::Ordering::Less)
         ); // distinguish by coefficient
-        assert!(Data::Int(2) > Data::Radical(Radical::new(1.into(), 2, Data::from(2).into()))); // distinguish from int
+        assert!(Number::Int(2) > Number::Radical(Radical::new(1.into(), 2, Number::from(2).into()))); // distinguish from int
         assert!(
-            Data::Radical(Radical::new(1.into(), 2, Data::from(19).into()))
-                > Data::Radical(Radical::new(3.into(), 2, Data::from(2).into()))
+            Number::Radical(Radical::new(1.into(), 2, Number::from(19).into()))
+                > Number::Radical(Radical::new(3.into(), 2, Number::from(2).into()))
         ); // distinguish complex
     }
 
     #[test]
     fn roots_negatives_cursory() {
         assert!(
-            Data::Radical(Radical::new_raw(Ratio::from(-1), 2, Data::from(2).into()))
-                < Data::Radical(Radical::new_raw(Ratio::from(1), 2, Data::from(2).into()))
+            Number::Radical(Radical::new_raw(Ratio::from(-1), 2, Number::from(2).into()))
+                < Number::Radical(Radical::new_raw(Ratio::from(1), 2, Number::from(2).into()))
         );
         assert!(
-            Data::Radical(Radical::new_raw(Ratio::from(-90), 3, Data::from(-2).into()))
-                > Data::Radical(Radical::new_raw(Ratio::from(-1), 3, Data::from(2).into()))
+            Number::Radical(Radical::new_raw(Ratio::from(-90), 3, Number::from(-2).into()))
+                > Number::Radical(Radical::new_raw(Ratio::from(-1), 3, Number::from(2).into()))
         );
     }
 
@@ -305,9 +305,9 @@ mod test {
             assert_eq!(
                 {
                     let lhs =
-                        Data::Radical(Radical::new((2 * m).into(), 3, Data::from(2 * a).into()));
+                        Number::Radical(Radical::new((2 * m).into(), 3, Number::from(2 * a).into()));
                     println!("lhs: {:?}", lhs);
-                    let rhs = Data::Radical(Radical::new(n.into(), 3, Data::from(2 * b).into()));
+                    let rhs = Number::Radical(Radical::new(n.into(), 3, Number::from(2 * b).into()));
                     println!("rhs: {:?}", rhs);
                     lhs.partial_cmp(&rhs)
                 },
@@ -319,27 +319,27 @@ mod test {
     #[test]
     fn symbolics() {
         assert!(
-            Data::Symbolic(
+            Number::Symbolic(
                 Symbolic {
-                    coeff: Some(Data::from(2)),
+                    coeff: Some(Number::from(2)),
                     symbol: "pi".into(),
                     constant: None
                 }
                 .into()
-            ) > Data::Symbol("pi".into())
+            ) > Number::Symbol("pi".into())
         );
 
         assert!(
-            Data::Symbolic(
+            Number::Symbolic(
                 Symbolic {
-                    coeff: Some(Data::from(4)),
+                    coeff: Some(Number::from(4)),
                     symbol: "pi".into(),
                     constant: None
                 }
                 .into()
-            ) > Data::Symbolic(
+            ) > Number::Symbolic(
                 Symbolic {
-                    coeff: Some(Data::from(2)),
+                    coeff: Some(Number::from(2)),
                     symbol: "pi".into(),
                     constant: None
                 }
@@ -347,14 +347,14 @@ mod test {
             )
         );
         assert!(
-            Data::Symbolic(
+            Number::Symbolic(
                 Symbolic {
-                    coeff: Some(Data::from(2)),
+                    coeff: Some(Number::from(2)),
                     symbol: "pi".into(),
                     constant: None
                 }
                 .into()
-            ) > Data::from(6)
+            ) > Number::from(6)
         );
     }
 }

@@ -1,4 +1,4 @@
-use crate::eval::{op::root::NthRoot, Data, DivisibleBy, SymbolEval, Symbolic};
+use crate::eval::{op::root::NthRoot, Number, DivisibleBy, SymbolEval, Symbolic};
 use std::convert::TryInto;
 
 pub trait Pow<RHS = Self> {
@@ -7,17 +7,17 @@ pub trait Pow<RHS = Self> {
     fn pow(self, rhs: RHS) -> Self::Output;
 }
 
-impl Pow for Data {
+impl Pow for Number {
     type Output = Result<Self, String>;
 
     fn pow(self, rhs: Self) -> Self::Output {
-        let invert_result = rhs < Data::from(0);
+        let invert_result = rhs < Number::from(0);
         let abs_rhs = if invert_result { -rhs } else { rhs };
         match self {
             Self::Int(i) => match abs_rhs {
-                Self::Int(j) => Ok(Data::Int(i.pow(j as u32))),
-                Self::Float(f) => Ok(Data::Float((i as f64).powf(f))),
-                Self::Radical(r) => Ok(Data::Float((i as f64).powf(r.as_float()?))),
+                Self::Int(j) => Ok(Number::Int(i.pow(j as u32))),
+                Self::Float(f) => Ok(Number::Float((i as f64).powf(f))),
+                Self::Radical(r) => Ok(Number::Float((i as f64).powf(r.as_float()?))),
                 Self::Rational(r) => self
                     .pow(Self::Int(*r.numer()))
                     .and_then(|x| x.nth_root(*r.denom())),
@@ -37,10 +37,10 @@ impl Pow for Data {
                     Ok(x) => x.nth_root(*j.denom()),
                     Err(e) => Err(e),
                 },
-                Self::Radical(j) => Ok(Data::Float(i.as_float()?.powf(j.as_float()?))),
-                Self::Symbol(j) => Ok(Data::Float(i.as_float()?.powf(j.symbol_eval()?))),
-                Self::Symbolic(j) => Ok(Data::Float(i.as_float()?.powf(j.as_float()?))),
-                a => Ok(Data::Float(i.as_float()?.powf(a.try_into()?))),
+                Self::Radical(j) => Ok(Number::Float(i.as_float()?.powf(j.as_float()?))),
+                Self::Symbol(j) => Ok(Number::Float(i.as_float()?.powf(j.symbol_eval()?))),
+                Self::Symbolic(j) => Ok(Number::Float(i.as_float()?.powf(j.as_float()?))),
+                a => Ok(Number::Float(i.as_float()?.powf(a.try_into()?))),
             },
             Self::Symbol(i) => match abs_rhs {
                 Self::Int(j) => Self::Symbol(i).naive_pow(j as u32),
@@ -50,19 +50,19 @@ impl Pow for Data {
                 Self::Float(j) => i
                     .symbol_eval()
                     .and_then(|x| Ok(x.powf(j)))
-                    .map(|d| Data::from(d)),
+                    .map(|d| Number::from(d)),
                 Self::Symbol(j) => i
                     .symbol_eval()
                     .and_then(|x| j.symbol_eval().map(|y| x.powf(y)))
-                    .map(|d| Data::from(d)),
+                    .map(|d| Number::from(d)),
                 Self::Symbolic(j) => i
                     .symbol_eval()
                     .and_then(|x| Ok(x.powf(j.as_float()?)))
-                    .map(|d| Data::from(d)),
+                    .map(|d| Number::from(d)),
                 Self::Radical(j) => i
                     .symbol_eval()
                     .and_then(|x| Ok(x.powf(j.as_float()?)))
-                    .map(|d| Data::from(d)),
+                    .map(|d| Number::from(d)),
             },
             Self::Symbolic(i) => {
                 if i.constant == None {
@@ -92,7 +92,7 @@ impl Pow for Data {
         }
         .and_then(|k| {
             if invert_result {
-                Data::Int(1) / k
+                Number::Int(1) / k
             } else {
                 Ok(k)
             }

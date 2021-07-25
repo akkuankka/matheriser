@@ -1,7 +1,7 @@
-use crate::eval::{Data, Radical, Symbolic};
+use crate::eval::{Number, Radical, Symbolic};
 use std::ops::Neg;
 
-impl Neg for Data {
+impl Neg for Number {
     type Output = Self;
     fn neg(self) -> Self::Output {
         match self {
@@ -13,7 +13,7 @@ impl Neg for Data {
                 constant: None
             })),
             Self::Symbolic(s) => Self::Symbolic(Box::new(Symbolic {
-                coeff: s.coeff.map(|x| -x).or(Some(Data::Int(-1))),
+                coeff: s.coeff.map(|x| -x).or(Some(Number::Int(-1))),
                 symbol: s.symbol,
                 constant: s.constant.map(|x| -x)
             })),

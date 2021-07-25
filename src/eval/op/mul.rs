@@ -1,10 +1,10 @@
-use crate::eval::{op::pow::Pow, Data, DivisibleBy, Radical, Symbolic};
+use crate::eval::{op::pow::Pow, Number, DivisibleBy, Radical, Symbolic};
 use crate::util::option::{Catch, OrMerge};
 use std::convert::TryFrom;
 use std::ops::Mul;
 
-impl Mul for Data {
-    type Output = Result<Data, String>;
+impl Mul for Number {
+    type Output = Result<Number, String>;
     fn mul(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
             // Easy ones first: same type so we get commutation free
@@ -34,7 +34,7 @@ impl Mul for Data {
                         Box::new(
                             (*a.radicand
                                 * b.radicand
-                                    .pow(Data::from(a.index as i64 / b.index as i64))?)?,
+                                    .pow(Number::from(a.index as i64 / b.index as i64))?)?,
                         ),
                     ))
                 } else if b.index.divisible_by(a.index) {
@@ -44,7 +44,7 @@ impl Mul for Data {
                         Box::new(
                             (*b.radicand
                                 * a.radicand
-                                    .pow(Data::from(b.index as i64 / a.index as i64))?)?,
+                                    .pow(Number::from(b.index as i64 / a.index as i64))?)?,
                         ),
                     ))
                 } else if *a.radicand == *b.radicand {
@@ -145,7 +145,7 @@ impl Mul for Data {
                     Symbolic {
                         coeff: syc
                             .coeff
-                            .or_merge(|x, y| x * y, Ok(Some(Data::from(int))))?
+                            .or_merge(|x, y| x * y, Ok(Some(Number::from(int))))?
                             .catch(Self::Int(1)),
                         symbol: syc.symbol,
                         constant: match syc.constant.map(|x| x * int.into()) {

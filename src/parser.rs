@@ -172,10 +172,10 @@ impl BinaryOp {
     }
 }
 
-use crate::eval::Data;
+use crate::eval::Number;
 #[derive(Debug, PartialEq)]
 pub enum ExprTree {
-    Val(Data),
+    Val(Number),
     UNode(UnaryOp, Box<ExprTree>),
     BNode(BinaryOp, Box<ExprTree>, Box<ExprTree>),
 }

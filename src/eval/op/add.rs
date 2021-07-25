@@ -1,8 +1,8 @@
-use crate::eval::{op::pow::Pow, ratio_as_float, Data, DivisibleBy, OrMerge, Radical, Symbolic};
+use crate::eval::{op::pow::Pow, ratio_as_float, Number, DivisibleBy, OrMerge, Radical, Symbolic};
 use std::convert::TryFrom;
 use std::ops::Add;
 
-impl Add for Data {
+impl Add for Number {
     type Output = Result<Self, String>;
     fn add(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
@@ -44,7 +44,7 @@ impl Add for Data {
                         coeff: lcoeff,
                         symbol: lsymbol,
                         constant: lconstant
-                            .or_merge(|a, b| a + b, Ok(Some(Data::Symbolic(rcontent))))?,
+                            .or_merge(|a, b| a + b, Ok(Some(Number::Symbolic(rcontent))))?,
                     })))
                 }
             }

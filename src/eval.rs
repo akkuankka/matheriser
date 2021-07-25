@@ -8,6 +8,7 @@ use op::pow::Pow;
 use radical::Radical;
 use std::convert::{TryFrom, TryInto};
 use std::ops::{Mul, Rem};
+use std::rc::Rc;
 
 mod op;
 mod ord;
@@ -17,14 +18,14 @@ pub mod radical;
 /// these are for dealing with symbolic numbers like pi and e
 #[derive(Clone, Debug, PartialEq)]
 pub struct Symbolic {
-    pub coeff: Option<Data>,
+    pub coeff: Option<Number>,
     pub symbol: String,
-    pub constant: Option<Data>,
+    pub constant: Option<Number>,
 }
 
-impl DivisibleBy<&Data> for Symbolic {
-    fn divisible_by(&self, rhs: &Data) -> bool {
-        if let Data::Symbol(s) = rhs {
+impl DivisibleBy<&Number> for Symbolic {
+    fn divisible_by(&self, rhs: &Number) -> bool {
+        if let Number::Symbol(s) = rhs {
             if self.constant == None && &self.symbol == s {
                 return true;
             }
@@ -39,7 +40,7 @@ impl DivisibleBy<&Data> for Symbolic {
             }
             _ => false,
         }
-    }
+  }
 }
 
 impl DivisibleBy<u16> for Symbolic {
@@ -60,7 +61,7 @@ impl DivisibleBy<u16> for Symbolic {
 impl Symbolic {
     fn as_float(self) -> Result<f64, String> {
         Ok(
-            f64::try_from(self.coeff.unwrap_or(Data::Int(1)))? * self.symbol.symbol_eval()?
+            f64::try_from(self.coeff.unwrap_or(Number::Int(1)))? * self.symbol.symbol_eval()?
                 + match self.constant {
                     Some(d) => d.try_into()?,
                     None => 0.,
@@ -70,9 +71,9 @@ impl Symbolic {
     /// Makes sure symbolics aren't illformed or symbols in disguise, returns Err(Symbol) if they are
     pub fn sanity_check(self) -> Result<Self, String> {
         let result = Self {
-            coeff: self.coeff.catch(Data::Int(1)),
+            coeff: self.coeff.catch(Number::Int(1)),
             symbol: self.symbol,
-            constant: self.constant.catch(Data::Int(0)),
+            constant: self.constant.catch(Number::Int(0)),
         };
         if result.coeff == None && result.constant == None {
             Err(result.symbol)
@@ -86,7 +87,7 @@ impl Symbolic {
 /// for what might be in other implementations a `f64` but in order to preserve
 /// rationals, radicals, and symbols, this needs to be kept.
 #[derive(Clone, Debug, PartialEq)]
-pub enum Data {
+pub enum Number {
     /// a whole number
     Int(i64),
     /// a fraction, we use this to avoid floats
@@ -97,32 +98,32 @@ pub enum Data {
     Symbol(String),
     /// these are bad and we try and avoid them, because of precision errors they
     /// tend to infect any numbers they come into contact with.
-    /// In future, this may become a floating-point decimal type, to avoid some of that,
-    /// If performance is not an issue
+    //  In future, this may become a floating-point decimal type, to avoid some of that,
+    //  if performance is not an issue
     Float(f64),
     /// see the documentation for `Symbolic`
     Symbolic(Box<Symbolic>),
 }
 
-impl From<i64> for Data {
+impl From<i64> for Number {
     fn from(n: i64) -> Self {
         Self::Int(n)
     }
 }
 
-impl From<String> for Data {
+impl From<String> for Number {
     fn from(s: String) -> Self {
         Self::Symbol(s)
     }
 }
 
-impl From<f64> for Data {
+impl From<f64> for Number {
     fn from(n: f64) -> Self {
         Self::Float(n)
     }
 }
 
-impl Data {
+impl Number {
     ///flattens any Data value down to a f64
     /// once float-land has been entered, there are only a few cases where we can get out of it.
 
@@ -198,7 +199,7 @@ where
     }
 }
 
-impl DivisibleBy<u16> for Data {
+impl DivisibleBy<u16> for Number {
     fn divisible_by(&self, divisor: u16) -> bool {
         match &self {
             Self::Int(n) => n.divisible_by(divisor as i64),
@@ -210,8 +211,8 @@ impl DivisibleBy<u16> for Data {
     }
 }
 
-impl DivisibleBy<&Data> for Data {
-    fn divisible_by(&self, divisor: &Data) -> bool {
+impl DivisibleBy<&Number> for Number {
+    fn divisible_by(&self, divisor: &Number) -> bool {
         match &self {
             //let's get the easy cases out of the way:
             // a symbol is only divisible by itself (or maybe an illformed symbolic but that's already an error)
@@ -246,12 +247,12 @@ impl DivisibleBy<&Data> for Data {
     }
 }
 
-impl TryFrom<Data> for f64 {
+impl TryFrom<Number> for f64 {
     type Error = String;
 
-    fn try_from(d: Data) -> Result<Self, Self::Error> {
+    fn try_from(d: Number) -> Result<Self, Self::Error> {
         let f_d = d.as_float()?;
-        if let Data::Float(n) = f_d {
+        if let Number::Float(n) = f_d {
             return Ok(n);
         } else {
             unreachable!()
@@ -261,7 +262,7 @@ impl TryFrom<Data> for f64 {
 
 // this is the bit that actually does the maths
 impl ExprTree {
-    pub fn eval(self) -> Result<Data, String> {
+    pub fn eval(self) -> Result<Rc<Number>, String> {
         match self {
             ExprTree::Val(k) => Ok(k),
             ExprTree::UNode(op, t) => match op {

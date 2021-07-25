@@ -1,9 +1,9 @@
-use crate::eval::{op::pow::Pow, Data, DivisibleBy, Radical, SymbolEval, Symbolic};
+use crate::eval::{op::pow::Pow, Number, DivisibleBy, Radical, SymbolEval, Symbolic};
 use num::rational::Ratio;
 use std::convert::TryFrom;
 use std::ops::Div;
 
-impl Div for Data {
+impl Div for Number {
     type Output = Result<Self, String>;
     fn div(self, rhs: Self) -> Self::Output {
         if rhs == Self::Int(0) {
@@ -33,7 +33,7 @@ impl Div for Data {
                 Self::Symbol(s) => match rhs {
                     Self::Int(m) => Ok(Self::Symbolic(
                         Symbolic {
-                            coeff: Some(Data::Rational(Ratio::from((1, m)))),
+                            coeff: Some(Number::Rational(Ratio::from((1, m)))),
                             symbol: s,
                             constant: None,
                         }
@@ -72,7 +72,7 @@ impl Div for Data {
                             Ok(Self::Symbolic(
                                 Symbolic {
                                     coeff: Some(
-                                        (n.coeff.unwrap_or(Data::Int(1))
+                                        (n.coeff.unwrap_or(Number::Int(1))
                                             / Self::Symbol(m.clone()))?,
                                     ),
                                     symbol: n.symbol,
@@ -91,7 +91,7 @@ impl Div for Data {
                     }
                     a => Ok(Self::Symbolic(
                         Symbolic {
-                            coeff: Some((n.coeff.unwrap_or(Data::Int(1)) / a.clone())?),
+                            coeff: Some((n.coeff.unwrap_or(Number::Int(1)) / a.clone())?),
                             symbol: n.symbol,
                             constant: {
                                 let r = n.constant.map(|x| x / a.clone());
@@ -126,8 +126,8 @@ impl Div for Data {
                                     m.radicand
                                         .clone()
                                         .pow(
-                                            (Data::from(n.index as i64)
-                                                / Data::from(m.index as i64))?,
+                                            (Number::from(n.index as i64)
+                                                / Number::from(m.index as i64))?,
                                         )?
                                         .into(),
                                 );
@@ -138,7 +138,7 @@ impl Div for Data {
                                         n.radicand,
                                     )))
                                 } else {
-                                    Self::Radical(n).as_float()? / Data::from(m.as_float()?)
+                                    Self::Radical(n).as_float()? / Number::from(m.as_float()?)
                                 }
                             } else if m.index.divisible_by(n.index) {
                                 let lhs_modified = Radical::new(
@@ -147,8 +147,8 @@ impl Div for Data {
                                     n.radicand
                                         .clone()
                                         .pow(
-                                            (Data::from(m.index as i64)
-                                                / Data::from(n.index as i64))?,
+                                            (Number::from(m.index as i64)
+                                                / Number::from(n.index as i64))?,
                                         )?
                                         .into(),
                                 );

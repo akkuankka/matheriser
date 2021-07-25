@@ -1,4 +1,4 @@
-use crate::eval::{Data, DivisibleBy, Radical};
+use crate::eval::{Number, DivisibleBy, Radical};
 use num::rational::Ratio;
 use std::convert::TryInto;
 pub trait NthRoot<RHS = Self>
@@ -118,7 +118,7 @@ impl NthRoot for u32 {
     }
 }
 
-impl NthRoot<i64> for Data {
+impl NthRoot<i64> for Number {
     type Output = Result<Self, String>;
     fn nth_root(self, rhs: i64) -> Self::Output {
         if rhs == 0 {
