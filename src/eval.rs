@@ -16,10 +16,10 @@ pub mod radical;
 
 /// This is a symbolic expression, not like the ones in lisp,
 /// these are for dealing with symbolic numbers like pi and e
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct Symbolic {
     pub coeff: Option<Number>,
-    pub symbol: String,
+    pub symbol: Symbol,
     pub constant: Option<Number>,
 }
 
@@ -69,7 +69,7 @@ impl Symbolic {
         )
     }
     /// Makes sure symbolics aren't illformed or symbols in disguise, returns Err(Symbol) if they are
-    pub fn sanity_check(self) -> Result<Self, String> {
+    pub fn sanity_check(self) -> Result<Self, Symbol> {
         let result = Self {
             coeff: self.coeff.catch(Number::Int(1)),
             symbol: self.symbol,
@@ -86,23 +86,23 @@ impl Symbolic {
 /// The basic data type that all our calculations act on, yes this is very large
 /// for what might be in other implementations a `f64` but in order to preserve
 /// rationals, radicals, and symbols, this needs to be kept.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub enum Number {
     /// a whole number
     Int(i64),
     /// a fraction, we use this to avoid floats
-    Rational(Ratio<i64>),
+    Rational(Rc<Ratio<i64>>),
     /// a fancy form of a square root, see the module itself `radical`
-    Radical(Radical),
+    Radical(Rc<Radical>),
     /// pi, e, etc, the contents may eventually become a `non_exhaustive` enum to save space
-    Symbol(String),
+    Symbol(Symbol),
     /// these are bad and we try and avoid them, because of precision errors they
     /// tend to infect any numbers they come into contact with.
     //  In future, this may become a floating-point decimal type, to avoid some of that,
     //  if performance is not an issue
     Float(f64),
     /// see the documentation for `Symbolic`
-    Symbolic(Box<Symbolic>),
+    Symbolic(Rc<Symbolic>),
 }
 
 impl From<i64> for Number {
@@ -111,8 +111,8 @@ impl From<i64> for Number {
     }
 }
 
-impl From<String> for Number {
-    fn from(s: String) -> Self {
+impl From<Symbol> for Number {
+    fn from(s: Symbol) -> Self {
         Self::Symbol(s)
     }
 }
@@ -131,7 +131,7 @@ impl Number {
         Ok(match self {
             Self::Float(_) => self,
             Self::Int(n) => Self::Float(n as f64),
-            Self::Rational(n) => Self::Float(ratio_as_float(n)),
+            Self::Rational(n) => Self::Float(ratio_as_float(*n)),
             Self::Symbol(s) => Self::Float(s.symbol_eval().unwrap_or(0.)),
             Self::Symbolic(s) => Self::Float(s.as_float()?),
             Self::Radical(r) => Self::Float(r.as_float()?),
@@ -142,6 +142,12 @@ impl Number {
 fn ratio_as_float(r: Ratio<i64>) -> f64 {
     let (numer, denom) = r.into();
     numer as f64 / denom as f64
+}
+
+#[non_exhaustive]
+#[derive(Copy, Clone, PartialEq, Eq)]
+enum Symbol {
+    Pi, E, Phi, Sqrt2
 }
 
 ///This trait describes the behaviour of a stringy symbol turning into a number
@@ -157,6 +163,31 @@ impl SymbolEval for String {
             "e" | "E" => std::f64::consts::E,
             "phi" | "Phi" => 1.61803398874989484820458683436563811,
             "sqrt2" | "root2" => std::f64::consts::SQRT_2,
+            e => return Err(format!("constant {} not recognised", e.to_string())),
+        })
+    }
+}
+
+impl SymbolEval for Symbol {
+    fn symbol_eval(&self) -> Result<f64, String> {
+        Ok(match self {
+            Pi => std::f64::consts::PI,
+            E => std::f64::consts::E,
+            Phi => 1.61803398874989484820458683436563811,
+            Sqrt2 => std::f64::consts::SQRT_2,
+            _ => return Err("constant not recognised !".to_string())
+        })
+    }
+}
+
+impl TryFrom<String> for Symbol {
+    type Error = String;
+    fn try_from(s: String) -> Result<Symbol, Self::Error> {
+        Ok(match s.as_str() {
+            "pi" | "Pi" => Symbol::Pi,
+            "e" | "E" => Symbol::E,
+            "phi" | "Phi" => Symbol::Phi,
+            "sqrt2" | "root2" => Symbol::Sqrt2,
             e => return Err(format!("constant {} not recognised", e.to_string())),
         })
     }
@@ -229,14 +260,14 @@ impl DivisibleBy<&Number> for Number {
             },
             // Rationals: within our Data enum, Rationals should not be integers in disguise, that should get caught by the reduction step, which means that the implementation provided by the generic above is fine
             Self::Rational(n) => match &divisor {
-                Self::Rational(m) => n.divisible_by(*m),
+                Self::Rational(m) => n.divisible_by(**m),
                 _ => false,
             },
             // Radicals are a bit tricky
             Self::Radical(n) => match &divisor {
                 Self::Int(m) => n.divisible_by(*m),
-                Self::Rational(rad) => n.divisible_by(rad),
-                Self::Radical(m) => n.divisible_by(m),
+                Self::Rational(rad) => n.divisible_by(&**rad), // &Rc<a> -> Rc<a> -> &a
+                Self::Radical(m) => n.divisible_by(&**m), 
                 _ => false,
             },
             Self::Float(n) => match divisor {
@@ -262,7 +293,7 @@ impl TryFrom<Number> for f64 {
 
 // this is the bit that actually does the maths
 impl ExprTree {
-    pub fn eval(self) -> Result<Rc<Number>, String> {
+    pub fn eval(self) -> Result<Number, String> {
         match self {
             ExprTree::Val(k) => Ok(k),
             ExprTree::UNode(op, t) => match op {
@@ -273,9 +304,9 @@ impl ExprTree {
                 let l = lhs.eval()?;
                 let r = rhs.eval()?;
                 match op {
-                    BinaryOp::Plus => l + r,
+                    BinaryOp::Plus => l.add(r),
                     BinaryOp::Minus => l - r,
-                    BinaryOp::Mul => l * r,
+                    BinaryOp::Mul => l.mul(r),
                     BinaryOp::Exp => l.pow(r),
                     BinaryOp::Div => l / r,
                 }
