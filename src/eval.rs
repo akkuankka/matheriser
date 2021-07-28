@@ -91,7 +91,7 @@ pub enum Number {
     /// a whole number
     Int(i64),
     /// a fraction, we use this to avoid floats
-    Rational(Rc<Ratio<i64>>),
+    Rational(Ratio<i64>),
     /// a fancy form of a square root, see the module itself `radical`
     Radical(Rc<Radical>),
     /// pi, e, etc, the contents may eventually become a `non_exhaustive` enum to save space
@@ -260,13 +260,13 @@ impl DivisibleBy<&Number> for Number {
             },
             // Rationals: within our Data enum, Rationals should not be integers in disguise, that should get caught by the reduction step, which means that the implementation provided by the generic above is fine
             Self::Rational(n) => match &divisor {
-                Self::Rational(m) => n.divisible_by(**m),
+                Self::Rational(m) => n.divisible_by(*m),
                 _ => false,
             },
             // Radicals are a bit tricky
             Self::Radical(n) => match &divisor {
                 Self::Int(m) => n.divisible_by(*m),
-                Self::Rational(rad) => n.divisible_by(&**rad), // &Rc<a> -> Rc<a> -> &a
+                Self::Rational(rad) => n.divisible_by(rad), 
                 Self::Radical(m) => n.divisible_by(&**m), 
                 _ => false,
             },
@@ -304,9 +304,9 @@ impl ExprTree {
                 let l = lhs.eval()?;
                 let r = rhs.eval()?;
                 match op {
-                    BinaryOp::Plus => l.add(r),
+                    BinaryOp::Plus => l.add(&r),
                     BinaryOp::Minus => l - r,
-                    BinaryOp::Mul => l.mul(r),
+                    BinaryOp::Mul => l.mul(&r),
                     BinaryOp::Exp => l.pow(r),
                     BinaryOp::Div => l / r,
                 }
