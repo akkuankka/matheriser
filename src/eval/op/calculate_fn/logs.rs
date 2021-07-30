@@ -1,4 +1,5 @@
-use crate::eval::{Number, Symbolic};
+use crate::eval::{Number, Symbolic, op::{Add, Sub}, Symbol};
+
 
 type DataResult = Result<Number, String>;
 
@@ -19,7 +20,7 @@ pub fn log_10(x: Number) -> DataResult {
         Number::Rational(r) => {
             // this is an optimisation for precision rather than speed, any cases where this would result in anything other than a float would get cancelled out anyway, but the more we can avoid floating-poing errors the better
             let (numer, denom) = (*r.numer(), *r.denom());
-            log_10(Number::from(numer))? - log_10(Number::from(denom))?
+            log_10(Number::from(numer))?.sub(&log_10(Number::from(denom))?)
         }
         otherwise => log_10(otherwise.as_float()?)
     }
@@ -30,15 +31,15 @@ pub fn natural_log(x: Number) -> DataResult {
         return Err("Error: Logarithm of a non-positive number".to_string())
     }
     match x {
-        Number::Symbol(s) if s == "e" || s == "E" => Ok(Number::Int(1)),
+        Number::Symbol(Symbol::E) => Ok(Number::Int(1)),
         Number::Symbolic(s) => {
             let Symbolic {coeff, symbol, constant} = *s;
-            if symbol == "e" || symbol == "E" {
+            if symbol == Symbol::E {
                 if let (Some(c), None) = (&coeff, &constant) {
                     if let Some(n) = recursive_e_count(&c) {
                         Ok(Number::Int(n + 1))
                     } else {
-                        natural_log(c.clone()).and_then(|x| x + Number::from(1))
+                        natural_log(c.clone()).and_then(|x| x.add(&Number::from(1)))
                     }
                 } else if constant.is_none() && coeff.is_none() {
                     Ok(Number::Int(1))
@@ -50,7 +51,7 @@ pub fn natural_log(x: Number) -> DataResult {
             } 
         }
         Number::Radical(r) => {
-            if r.coefficient == 1.into() && *r.radicand == Number::Symbol("e".into()) {
+            if r.coefficient == 1.into() && r.radicand == Number::Symbol(Symbol::E) {
                 Ok(Number::Rational((1, r.index as i64).into()))
             } else {
                 r.as_float().map(|x| x.ln().into())
@@ -62,11 +63,11 @@ pub fn natural_log(x: Number) -> DataResult {
 
 fn recursive_e_count(x: &Number) -> Option<i64> {
     match x {
-        Number::Symbol(s) if s == "e" || s == "E" => Some(1),
+        Number::Symbol(Symbol::E) => Some(1),
         Number::Symbolic(s) => match &**s {
             Symbolic {coeff: Some(coeff), symbol, constant: None}
-                if symbol == "e" || symbol == "E" => recursive_e_count(&coeff).map(|x| x + 1),
-            Symbolic {coeff: None, symbol, constant: None} if symbol == "e" || symbol == "E" => Some(1),
+                if symbol == &Symbol::E => recursive_e_count(&coeff).map(|x| x + 1),
+            Symbolic {coeff: None, symbol, constant: None} if symbol == &Symbol::E => Some(1),
             _ => None
         }
         _ => None

@@ -94,8 +94,7 @@ impl Add for Number {
                     && lhs.radicand
                         == rhs
                             .radicand
-                            .clone()
-                            .pow(((lhs.index / rhs.index) as i64).into())?
+                            .pow(&Number::from((lhs.index / rhs.index) as i64))?
                             .into()
                 {
                     Ok(Number::Radical(Rc::new(Radical {
@@ -107,10 +106,9 @@ impl Add for Number {
                 // needs to commute Bruh
                 else if rhs.index.divisible_by(lhs.index)
                     && rhs.radicand
-                        == &lhs
+                        == lhs
                             .radicand
-                            .pow(((rhs.index / lhs.index) as i64).into())?
-                            .into()
+                            .pow(&Number::from((rhs.index / lhs.index) as i64))?
                 {
                     Ok(Number::Radical(Rc::new(Radical {
                         coefficient: lhs.coefficient + rhs.coefficient,
@@ -123,7 +121,7 @@ impl Add for Number {
             }
             (Number::Radical(rad), Number::Rational(rat))
             | (Number::Rational(rat), Number::Radical(rad)) => {
-                Ok(Number::Float(rad.as_float()? + ratio_as_float(*rat)))
+                Ok(Number::Float(rad.as_float()? + ratio_as_float(rat)))
             }
         }
     }

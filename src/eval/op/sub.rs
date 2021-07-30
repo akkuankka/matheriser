@@ -1,7 +1,7 @@
 use crate::eval::Number;
 use super::Add;
 
-trait Sub {
+pub trait Sub {
     type Output;
     fn sub(&self, rhs: &Self) -> Self::Output;
 }

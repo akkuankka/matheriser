@@ -1,6 +1,8 @@
-use crate::eval::{ratio_as_float, Number, Radical, SymbolEval, Symbolic};
+use crate::eval::op::Div;
+use crate::eval::{ratio_as_float, Number, Radical, SymbolEval, Symbolic, Symbol};
 use num::rational::Ratio;
 use std::convert::TryFrom;
+use std::rc::Rc;
 
 type DataResult = Result<Number, String>;
 
@@ -9,13 +11,13 @@ pub fn sin(data: Number) -> DataResult {
         Some(match c {
             Number::Rational(r) => match (*r.numer(), *r.denom()) {
                 (1, 6) => Number::Rational((1, 2).into()),
-                (1, 4) => Number::Radical(Radical::new_raw((1, 2).into(), 2, Number::from(2).into())),
-                (1, 3) => Number::Radical(Radical::new_raw((1, 2).into(), 2, Number::from(3).into())),
+                (1, 4) => Number::Radical(Rc::new(Radical::new_raw((1, 2).into(), 2, &Number::from(2)))),
+                (1, 3) => Number::Radical(Rc::new(Radical::new_raw((1, 2).into(), 2, &Number::from(3)))),
                 (1, 2) => Number::Int(1),
                 (1, 10) => Number::Symbolic(
                     Symbolic {
                         coeff: Number::Rational((1, 2).into()).into(),
-                        symbol: "phi".into(),
+                        symbol: Symbol::Phi,
                         constant: Number::Rational((-1, 2).into()).into(),
                     }
                     .into(),
@@ -32,20 +34,20 @@ pub fn sin(data: Number) -> DataResult {
         Number::Float(n) => n.sin().into(),
         Number::Radical(n) => n.as_float()?.sin().into(),
         Number::Rational(n) => ratio_as_float(n).sin().into(),
-        Number::Symbol(pi) if pi == "pi" => Number::Int(0),
+        Number::Symbol(Symbol::Pi) => Number::Int(0),
         Number::Symbol(s) => s.symbol_eval()?.sin().into(),
         Number::Symbolic(a) => match *a {
             Symbolic {
                 coeff: Some(coeff),
                 symbol,
                 constant: None,
-            } if symbol == "pi" => {
+            } if symbol == Symbol::Pi => {
                 // if in terms of pi
                 if coeff
                     <= Number::Symbolic(
                         Symbolic {
                             coeff: Some(Number::Rational(Ratio::from((1, 2)))),
-                            symbol: "pi".into(),
+                            symbol: Symbol::Pi,
                             constant: None,
                         }
                         .into(),
@@ -115,7 +117,7 @@ pub fn sin(data: Number) -> DataResult {
                                     Ratio::from(1) - rotated
                                 };
                                 if let Some(n) = sin_pi_coeff_lookup(&Number::Rational(reflected)) {
-                                    -n
+                                    -&n
                                 } else {
                                     Number::from(
                                         -(f64::try_from(Number::Symbolic(
@@ -145,14 +147,14 @@ pub fn cos(data: Number) -> DataResult {
     fn cos_pi_coeff_lookup(c: &Number) -> Option<Number> {
         Some(match c {
             Number::Rational(r) => match (*r.numer(), *r.denom()) {
-                (1, 6) => Number::Radical(Radical::new_raw((1, 2).into(), 2, Number::from(3).into())),
-                (1, 4) => Number::Radical(Radical::new_raw((1, 2).into(), 2, Number::from(2).into())),
+                (1, 6) => Number::Radical(Rc::new(Radical::new_raw((1, 2).into(), 2, &Number::from(3)))),
+                (1, 4) => Number::Radical(Rc::new(Radical::new_raw((1, 2).into(), 2, &Number::from(2).into()))),
                 (1, 3) => Number::Rational((1, 2).into()),
                 (1, 2) => Number::Int(0),
                 (1, 5) => Number::Symbolic(
                     Symbolic {
                         coeff: Some(Number::Rational((1, 2).into())),
-                        symbol: "phi".into(),
+                        symbol: Symbol::Phi,
                         constant: None,
                     }
                     .into(),
@@ -166,23 +168,23 @@ pub fn cos(data: Number) -> DataResult {
     Ok(match data {
         Number::Int(0) => Number::Int(1),
         Number::Int(n) => (n as f64).cos().into(),
-        Number::Float(n) => n.sin().into(),
-        Number::Rational(n) => ratio_as_float(n).sin().into(),
+        Number::Float(n) => n.cos().into(),
+        Number::Rational(n) => ratio_as_float(n).cos().into(),
         Number::Radical(n) => n.as_float()?.cos().into(),
-        Number::Symbol(pi) if pi == "pi" => Number::Int(0),
+        Number::Symbol(Symbol::Pi) => Number::Int(-1),
         Number::Symbol(s) => s.symbol_eval()?.cos().into(),
         Number::Symbolic(a) => match *a {
             Symbolic {
                 coeff: Some(coeff),
                 symbol,
                 constant: None,
-            } if symbol == "pi" => {
+            } if symbol == Symbol::Pi => {
                 // if in terms of pi
                 if coeff
                     <= Number::Symbolic(
                         Symbolic {
                             coeff: Some(Number::Rational(Ratio::from((1, 2)))),
-                            symbol: "pi".into(),
+                            symbol: Symbol::Pi,
                             constant: None,
                         }
                         .into(),
@@ -203,7 +205,7 @@ pub fn cos(data: Number) -> DataResult {
                             }
                             .into(),
                         ))?
-                        .sin()
+                        .cos()
                         .into()
                     }
                 } else {
@@ -258,7 +260,7 @@ pub fn cos(data: Number) -> DataResult {
                                     unreachable!()
                                 };
                                 if let Some(n) = cos_pi_coeff_lookup(&Number::Rational(rotated)) {
-                                    -n
+                                    -&n
                                 } else {
                                     Number::from(
                                         -(f64::try_from(Number::Symbolic(
@@ -287,9 +289,9 @@ pub fn cos(data: Number) -> DataResult {
 pub fn tan(theta: Number) -> DataResult {
     fn tan_pi_coeff_lookup(coeff: Ratio<i64>) -> Option<Number> {
         Some(match (*coeff.numer(), *coeff.denom()) {
-            (1, 6) => Number::Radical(Radical::new_raw((1, 3).into(), 2, Number::from(3).into())),
+            (1, 6) => Number::Radical(Rc::new(Radical::new_raw((1, 3).into(), 2, &Number::from(3)))),
             (1, 4) => Number::Int(1),
-            (1, 3) => Number::Radical(Radical::new_raw(1.into(), 2, Number::from(3).into())),
+            (1, 3) => Number::Radical(Rc::new(Radical::new_raw(1.into(), 2, &Number::from(3)))),
             (1, 2) => return None,
             _ => return None,
         })
@@ -302,7 +304,7 @@ pub fn tan(theta: Number) -> DataResult {
                 coeff: Some(coeff),
                 symbol,
                 constant: None,
-            } if symbol == "pi" => match coeff {
+            } if symbol == Symbol::Pi => match coeff {
                 Number::Int(_) => Ok(Number::Int(0)),
                 Number::Rational(r) => {
                     let r = r % 1;
@@ -310,14 +312,14 @@ pub fn tan(theta: Number) -> DataResult {
                         return Err("Undefined: Tangent of 1/2".to_string())
                     }
                     let looked_up = if r < 0.into() {
-                        tan_pi_coeff_lookup(r).map(|x| -x)
+                        tan_pi_coeff_lookup(r).map(|x| -&x)
                     } else {
                         tan_pi_coeff_lookup(r)
                     };                      
                     if let Some(res) = looked_up {
                         Ok(res)
                     }
-                    else {sin(Number::Rational(r.clone()))? / cos(Number::Rational(r))?}
+                    else {sin(Number::Rational(r.clone()))?.div(&cos(Number::Rational(r))?)}
                 },
                 otherwise => Ok(f64::try_from(otherwise)?.tan().into())
             },
@@ -325,6 +327,6 @@ pub fn tan(theta: Number) -> DataResult {
                 Ok(otherwise.as_float()?.tan().into())
             }
         },
-        otherwise => sin(otherwise.clone())? / cos(otherwise)?
+        otherwise => sin(otherwise.clone())?.div(&cos(otherwise)?)
     }
 }

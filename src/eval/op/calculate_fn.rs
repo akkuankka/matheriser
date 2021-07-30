@@ -5,14 +5,14 @@ use std::convert::TryFrom;
 
 pub trait CalculateFn {
     type Output;
-    fn calculate_fn(self, fn_name: &String) -> Self::Output;
+    fn calculate_fn(&self, fn_name: &String) -> Self::Output;
 }
 
 impl CalculateFn for Number {
     type Output = Result<Self, String>;
-    fn calculate_fn(self, fn_name: &String) -> Self::Output {
+    fn calculate_fn(&self, fn_name: &String) -> Self::Output {
        let f = FunctionKind::try_from(fn_name).map(|fk| fk.as_function())?;
-       f(self)
+       f(self.clone())
     }
 }
 
