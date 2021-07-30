@@ -73,7 +73,7 @@ impl Mul for Number {
                 .into(),
             )),
             (Number::Symbolic(a), Number::Symbolic(b)) => {
-                match (b.coeff.clone(), b.constant.clone()) {
+                match (&b.coeff, &b.constant) {
                     (None, None) => {
                         println!("This is embarassing, I messed up some algebra, it's fine though");
                         Ok(Number::Symbolic(
@@ -87,12 +87,12 @@ impl Mul for Number {
                     }
                     (Some(k), None) => Ok(Number::Symbolic(
                         Symbolic {
-                            coeff: a.coeff.or_merge(|x, y| x.mul(&y), Ok(Some(k)))?.or_merge(
+                            coeff: a.coeff.clone().or_merge(|x, y| x.mul(&y), Ok(Some(k.clone())))?.or_merge(
                                 |x, y| x.mul(&y),
                                 Ok(Some(Number::Symbol(b.symbol))),
                             )?,
                             symbol: a.symbol,
-                            constant: match a.constant {
+                            constant: match a.constant.clone() {
                                 None => None,
                                 Some(x) => Some(
                                     (x.mul(&k)).and_then(|y| y.mul(&b.symbol.into()))?,
@@ -108,13 +108,13 @@ impl Mul for Number {
                                 coeff: a
                                     .coeff
                                     .clone()
-                                    .or_merge(|x, y| x.mul(&y), Ok(b_coeff))?
+                                    .or_merge(|x, y| x.mul(&y), Ok(b_coeff.clone()))?
                                     .or_merge(|x, y| x.mul(&y), Ok(Some(b.symbol.into())))?
                                     .catch(Number::Int(1)),
                                 symbol: a.symbol.clone(),
                                 constant:
                                 match (
-                                    match a.constant {
+                                    match a.constant.clone() {
                                         // extremely weird syntactic hackery due to not being able to use map
                                         None => None,
                                         Some(x) => Some(x.mul(&b.symbol.into())?), // if it is Some(x), multiply it by symbol
@@ -131,11 +131,11 @@ impl Mul for Number {
                         ).add(&Number::Symbolic(
                             Symbolic {
                                 coeff: a
-                                    .coeff
+                                    .coeff.clone()
                                     .or_merge(|x, y| x.mul(&y), Ok(b_constant.clone()))?
                                     .catch(Number::Int(1)),
                                 symbol: a.symbol,
-                                constant: match (a.constant, b_constant) {
+                                constant: match (a.constant.clone(), b_constant) {
                                     (None, _) => None,
                                     (Some(t), None) => Some(t),
                                     (Some(l), Some(r)) => Some(l.mul(&r)?),
@@ -148,19 +148,19 @@ impl Mul for Number {
                     }
                 }
             } // now that all the single-type operations are done, the two sided ones
-            (Number::Float(flt), a) => Ok(Number::Float(flt * f64::try_from(*a)?)), // get floats out of the way because they're bad
-            (a, Number::Float(flt)) => Ok(Number::Float(flt * f64::try_from(*a)?)),
+            (Number::Float(flt), a) => Ok(Number::Float(flt * f64::try_from(a.clone())?)), // get floats out of the way because they're bad
+            (a, Number::Float(flt)) => Ok(Number::Float(flt * f64::try_from(a.clone())?)),
             (Number::Symbolic(syc), Number::Int(int))
             | (Number::Int(int), Number::Symbolic(syc)) => {
                 Ok(Number::Symbolic(
                     //next symbolics because they're specific
                     Symbolic {
                         coeff: syc
-                            .coeff
+                            .coeff.clone()
                             .or_merge(|x, y| x.mul(&y), Ok(Some(Number::from(*int))))?
                             .catch(Number::Int(1)),
                         symbol: syc.symbol,
-                        constant: match syc.constant.map(|x| x.mul(&Number::from(*int))) {
+                        constant: match syc.constant.as_ref().map(|x| x.mul(&Number::from(*int))) {
                             None => None,
                             Some(t) => Some(t?),
                         }
@@ -173,10 +173,10 @@ impl Mul for Number {
             | (Number::Symbol(sym), Number::Symbolic(syc)) => Ok(Number::Symbolic(
                 Symbolic {
                     coeff: syc
-                        .coeff
+                        .coeff.clone()
                         .or_merge(|x, y| x.mul(&y), Ok(Some(Number::Symbol(*sym))))?,
                     symbol: syc.symbol,
-                    constant: match syc.constant.map(|x| x.mul(&Number::Symbol(*sym))) {
+                    constant: match syc.constant.as_ref().map(|x| x.mul(&Number::Symbol(*sym))) {
                         None => None,
                         Some(t) => Some(t?),
                     },
@@ -187,11 +187,11 @@ impl Mul for Number {
             | (Number::Rational(rat), Number::Symbolic(syc)) => Ok(Number::Symbolic(
                 Symbolic {
                     coeff: syc
-                        .coeff
+                        .coeff.clone()
                         .or_merge(|x, y| x.mul(&y), Ok(Some(Number::Rational(*rat))))?
                         .catch(Number::Int(1)),
                     symbol: syc.symbol,
-                    constant: match syc.constant.map(|x| x.mul(&Number::Rational(*rat))) {
+                    constant: match syc.constant.as_ref().map(|x| x.mul(&Number::Rational(*rat))) {
                         None => None,
                         Some(t) => Some(t?),
                     }
@@ -203,14 +203,14 @@ impl Mul for Number {
             | (Number::Radical(rad), Number::Symbolic(syc)) => Ok(Number::Symbolic(
                 Symbolic {
                     coeff: syc
-                        .coeff
+                        .coeff.clone()
                         .or_merge(
                             |x, y| x.mul(&y),
                             Ok(Some(Number::Radical(rad.clone()))),
                         )?
                         .catch(Number::Int(1)),
                     symbol: syc.symbol,
-                    constant: match syc.constant.map(|x| x.mul(&Number::Radical(*rad))) {
+                    constant: match syc.constant.as_ref().map(|x| x.mul(&Number::Radical(rad.clone()))) {
                         None => None,
                         Some(t) => Some(t?),
                     }
@@ -252,7 +252,7 @@ impl Mul for Number {
             )))),
             (a, Number::Symbol(s)) | (Number::Symbol(s), a) => Ok(Number::Symbolic(
                 Symbolic {
-                    coeff: Some(*a),
+                    coeff: Some(a.clone()),
                     symbol: *s,
                     constant: None,
                 }

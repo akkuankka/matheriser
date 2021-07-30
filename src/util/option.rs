@@ -58,21 +58,34 @@ impl<T> OrMerge<T> for Option<T> {
 }
 
 
-pub trait Catch
+pub trait Catch<C>
 where
     Self: Sized,
 {
    type Inner;
-   fn catch(self, val: Self::Inner) -> Self; 
+   fn catch(self, val: C) -> Self; 
 }
 
-impl<T> Catch for Option<T>
-    where T: PartialEq
+impl<T> Catch<T> for Option<T>
+    where T: PartialEq 
 {
     type Inner = T;
-    fn catch(self, val: T) -> Self {
+    fn catch(self, val: Self::Inner) -> Self {
         match self {
             Some(v) if v == val => None,
+            None => None,
+            _ => self
+        }
+    }
+}
+
+impl<T> Catch<T> for Option<std::rc::Rc<T>>
+where T: PartialEq 
+{
+    type Inner = T;
+    fn catch(self, val: Self::Inner) -> Self {
+        match self {
+            Some(v) if *v == val => None,
             None => None,
             _ => self
         }

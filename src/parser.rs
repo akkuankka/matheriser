@@ -1,6 +1,6 @@
 /* parsing is done by recursive descent */
 use logos::Logos;
-use std::mem;
+use std::{convert::{TryFrom, TryInto}, mem};
 
 #[derive(Logos, Debug, PartialEq, Clone)]
 enum Token {
@@ -172,8 +172,8 @@ impl BinaryOp {
     }
 }
 
-use crate::eval::Number;
-#[derive(Debug, PartialEq)]
+use crate::eval::{Number, Symbol};
+#[derive(PartialEq, Debug)]
 pub enum ExprTree {
     Val(Number),
     UNode(UnaryOp, Box<ExprTree>),
@@ -185,7 +185,10 @@ impl ExprTree {
         match tok {
             Token::INumber(n) => Ok(ExprTree::Val((*n as i64).into())),
             Token::FNumber(n) => Ok(ExprTree::Val((*n as f64).into())),
-            Token::Symbol(n) => Ok(ExprTree::Val((&*n.clone() as &str).to_string().into())),
+            Token::Symbol(n) => match Symbol::try_from(n.clone()) {
+                Err(e) => Err(e),
+                Ok(sym) => Ok(ExprTree::Val(Number::from(sym)))
+            },
             _ => Err("Tried to parse something that isn't a number as a number".to_string()),
         }
     }

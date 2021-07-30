@@ -1,9 +1,9 @@
-use super::{op::pow::Pow, op::root::NthRoot, ratio_as_float, Number, DivisibleBy};
+use super::{op::{Div, Pow}, op::root::NthRoot, ratio_as_float, Number, DivisibleBy};
 use num::rational::Ratio;
 use std::convert::TryFrom;
 use std::rc::Rc;
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct Radical {
     pub coefficient: Ratio<i64>,
     pub index: u32,
@@ -41,7 +41,7 @@ impl Radical {
             [] => Ok(self),
             [(factor, root), ref factors @ ..] => {
                 let coefficient = self.coefficient * *root as i64;
-                let radicand = (self.radicand / Number::Int(*factor as i64))?;
+                let radicand = self.radicand.div(&Number::Int(*factor as i64))?;
                 Radical {
                     coefficient,
                     index: self.index,
@@ -99,9 +99,9 @@ impl DivisibleBy<&Self> for Radical {
 }
 
 impl Radical {
-    pub fn as_float(self) -> Result<f64, String> {
+    pub fn as_float(&self) -> Result<f64, String> {
         Ok(ratio_as_float(self.coefficient)
-            * f64::try_from(self.radicand)?
+            * f64::try_from(self.radicand.clone())?
                 .nth_root(self.index as i64)
                 .ok_or("Even root of negative number")?)
     }
@@ -109,7 +109,7 @@ impl Radical {
         Ok(Self::new(
             1.into(),
             self.index,
-            &self.radicand.pow(Number::from(self.index as i64 - 1))?,
+            &self.radicand.pow(&Number::from(self.index as i64 - 1))?,
         ))
     }
 }

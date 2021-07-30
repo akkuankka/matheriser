@@ -246,7 +246,7 @@ impl NthRoot<i64> for Number {
                         Self::Radical(Rc::new(Radical::new_raw(
                             Ratio::from(if should_negate { 1 } else { -1 }),
                             index,
-                            &Self::Symbolic(*s),
+                            &Self::Symbolic(s.clone()),
                         )))
                     }
                 }

@@ -5,7 +5,6 @@ use crate::eval::{
 use num::integer::lcm;
 use num::rational::Ratio;
 use std::cmp::Ordering;
-use std::rc::Rc;
 
 impl std::cmp::PartialOrd for Number {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
@@ -15,7 +14,7 @@ impl std::cmp::PartialOrd for Number {
             (Self::Rational(a), Self::Int(b)) => a.partial_cmp(&Ratio::from(*b)),
             (Self::Symbol(a), Self::Int(b)) => a.symbol_eval().ok()?.partial_cmp(&(*b as f64)),
             (Self::Radical(a), Self::Int(b)) => {
-                let (index, radicand) = (a.index, a.radicand);
+                let (index, radicand) = (a.index, a.radicand.clone());
                 // println!("{} root {:?} ? {}", index, radicand, b); i don't know what this is used for?
                 let (lneg, rneg) = (a.coefficient < 0.into(), *b < 0);
                 let rhs = Ratio::from(*b) / a.coefficient;
@@ -29,17 +28,17 @@ impl std::cmp::PartialOrd for Number {
             }
             (Self::Symbolic(a), Self::Int(b)) => {
                 let Symbolic {
-                    coeff,
+                    ref coeff,
                     symbol,
-                    constant,
-                } = *a.clone();
+                    ref constant,
+                } = **a;
                 let should_flip = coeff.as_ref().unwrap_or(&Self::Int(1)) < &Number::from(0);
                 Self::Symbol(symbol)
                     .partial_cmp(
                         &(Self::Int(*b)
-                            .sub(&constant.unwrap_or(Number::Int(0)))
+                            .sub(&constant.clone().unwrap_or(Number::Int(0)))
                             .ok()?
-                            .div(&coeff.unwrap_or(Number::Int(1))))
+                            .div(&coeff.clone().unwrap_or(Number::Int(1))))
                         .ok()?,
                     )
                     .map(|o| if should_flip { o.reverse() } else { o })
@@ -75,12 +74,12 @@ impl std::cmp::PartialOrd for Number {
                     match (&a.constant, &b.constant) {
                         // keeping in mind that we're assuming our symbols are positive (this means symbols can't be used for variables)
                         (None, None) => a
-                            .coeff
+                            .coeff.clone()
                             .unwrap_or(Number::Int(1))
-                            .partial_cmp(&b.coeff.unwrap_or(Number::Int(1))),
+                            .partial_cmp(&b.coeff.clone().unwrap_or(Number::Int(1))),
                         (Some(c), None) => {
-                            let m = a.coeff.unwrap_or(Number::Int(1));
-                            let n = b.coeff.unwrap_or(Number::Int(1));
+                            let m = a.coeff.clone().unwrap_or(Number::Int(1));
+                            let n = b.coeff.clone().unwrap_or(Number::Int(1));
 
                             if (m > n) && (c >= &0.into()) {
                                 Some(Ordering::Greater)
@@ -172,7 +171,7 @@ impl std::cmp::PartialOrd for Number {
                     let k = lcm(a.index, b.index) as i32; // lowest common multiple of the indices
                     let m = a.coefficient.abs();
                     let n = b.coefficient.abs();
-                    let lhs = { |x: &Number| if lneg { -x } else { *x } }(
+                    let lhs = { |x: &Number| if lneg { -x } else { x.clone() } }(
                         // flip if negative
                         &Self::Rational(m.pow(k))
                             .mul(
@@ -182,7 +181,7 @@ impl std::cmp::PartialOrd for Number {
                             )
                             .ok()?,
                     );
-                    let rhs = { |x: &Number| if rneg { -x } else { *x } }(
+                    let rhs = { |x: &Number| if rneg { -x } else { x.clone() } }(
                         &Self::Rational(n.pow(k))
                             .mul(
                                 &b.radicand
@@ -195,7 +194,7 @@ impl std::cmp::PartialOrd for Number {
                 }
             }
             (Self::Radical(a), Self::Rational(b)) => {
-                let (index, radicand) = (a.index, a.radicand);
+                let (index, radicand) = (a.index, a.radicand.clone());
                 let (lneg, rneg) = (a.coefficient < 0.into(), b < &0.into());
                 let rhs = b / a.coefficient.abs();
                 if lneg { -&radicand } else { radicand }.partial_cmp(&if rneg {
@@ -215,9 +214,9 @@ impl std::cmp::PartialOrd for Number {
                 Self::Symbol(*symbol)
                     .partial_cmp(
                         &(Self::Rational(*b)
-                            .sub(&constant.unwrap_or(Number::Int(0)))
+                            .sub(&constant.clone().unwrap_or(Number::Int(0)))
                             .ok()?
-                            .div(&coeff.unwrap_or(Number::Int(1))))
+                            .div(&coeff.clone().unwrap_or(Number::Int(1))))
                         .ok()?,
                     )
                     .map(|o| if should_flip { o.reverse() } else { o })

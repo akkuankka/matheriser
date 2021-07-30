@@ -14,9 +14,9 @@ impl Neg for &Number {
                 constant: None
             })),
             Number::Symbolic(s) => Number::Symbolic(Rc::new(Symbolic {
-                coeff: s.coeff.map(|x| -&x).or(Some(Number::Int(-1))),
+                coeff: s.coeff.as_ref().map(|x| -x).or(Some(Number::Int(-1))),
                 symbol: s.symbol,
-                constant: s.constant.map(|x| -&x)
+                constant: s.constant.as_ref().map(|x| -x)
             })),
             Number::Rational(r) => Number::Rational(-r),
             Number::Radical(r) => Number::Radical(Rc::new(Radical::new( -r.coefficient, r.index, &r.radicand)))

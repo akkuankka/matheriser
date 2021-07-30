@@ -30,7 +30,7 @@ impl Div for Number {
                     Self::Symbol(m) => Ok(Self::Float(*n as f64 / m.symbol_eval()?)),
                     Self::Symbolic(m) => Ok(Self::Float(*n as f64 / m.as_float()?)),
                     Self::Radical(r) => Self::Int(*n)
-                        .mul(&Self::Radical(Rc::new(r.conjugate()?)))?
+                        .mul(&Self::Radical(Rc::new(r.as_ref().clone().conjugate()?)))?
                         .div(&r.radicand),
                     Self::Rational(m) => Self::Int(*n)
                         .mul(&Self::Int(*m.denom()))?
@@ -62,7 +62,7 @@ impl Div for Number {
                         }
                         .into(),
                     )),
-                    _ => Ok(Self::Float(s.symbol_eval()? / f64::try_from(*rhs)?)),
+                    _ => Ok(Self::Float(s.symbol_eval()? / f64::try_from(rhs.clone())?)),
                 },
                 Self::Symbolic(n) => match rhs {
                     Self::Symbol(m) => {
@@ -72,20 +72,20 @@ impl Div for Number {
                                 Some(e) => e.divisible_by(&Self::Symbol(*m)),
                             }
                         {
-                            n.coeff
+                            n.coeff.clone()
                                 .unwrap_or(Self::Int(0))
-                                .add(&(n.constant.unwrap_or(Self::Int(1)).div(&Self::Symbol(*m))?))
+                                .add(&(n.constant.clone().unwrap_or(Self::Int(1)).div(&Self::Symbol(*m))?))
                         } else {
                             Ok(Self::Symbolic(
                                 Symbolic {
                                     coeff: Some(
-                                        n.coeff
+                                        n.coeff.clone()
                                             .unwrap_or(Number::Int(1))
                                             .div(&Self::Symbol(*m))?,
                                     ),
                                     symbol: n.symbol,
                                     constant: {
-                                        let r = n.constant.map(|x| x.div(&Self::Symbol(*m)));
+                                        let r = n.constant.clone().map(|x| x.div(&Self::Symbol(*m)));
                                         match r {
                                             None => None,
                                             Some(Err(e)) => return Err(e),
@@ -99,10 +99,10 @@ impl Div for Number {
                     }
                     a => Ok(Self::Symbolic(
                         Symbolic {
-                            coeff: Some(n.coeff.unwrap_or(Number::Int(1)).div(a)?),
+                            coeff: Some(n.coeff.clone().unwrap_or(Number::Int(1)).div(a)?),
                             symbol: n.symbol,
                             constant: {
-                                let r = n.constant.map(|x| x.div(a));
+                                let r = n.constant.clone().map(|x| x.div(a));
                                 match r {
                                     None => None,
                                     Some(Err(e)) => return Err(e),
@@ -143,7 +143,7 @@ impl Div for Number {
                                         &n.radicand,
                                     ))))
                                 } else {
-                                    Self::Radical(*n)
+                                    Self::Radical(n.clone())
                                         .as_float()?
                                         .div(&Number::from(m.as_float()?))
                                 }
@@ -163,19 +163,19 @@ impl Div for Number {
                                         &n.radicand,
                                     ))))
                                 } else {
-                                    Self::Radical(*n)
+                                    Self::Radical(n.clone())
                                         .as_float()?
-                                        .div(&Self::Radical(*m).as_float()?)
+                                        .div(&Self::Radical(m.clone()).as_float()?)
                                 }
                             } else {
-                                Self::Radical(*n)
+                                Self::Radical(n.clone())
                                     .as_float()?
-                                    .div(&Self::Radical(*m).as_float()?)
+                                    .div(&Self::Radical(m.clone()).as_float()?)
                             }
                         } else {
-                            Self::Radical(*n)
+                            Self::Radical(n.clone())
                                 .as_float()?
-                                .div(&Self::Radical(*m).as_float()?)
+                                .div(&Self::Radical(m.clone()).as_float()?)
                         }
                     }
                     Self::Rational(m) => Ok(Self::Radical(Rc::new(Radical::new(
@@ -183,7 +183,7 @@ impl Div for Number {
                         n.index,
                         &n.radicand,
                     )))),
-                    b => Self::Radical(*n).as_float()?.div(&b.as_float()?),
+                    b => Self::Radical(n.clone()).as_float()?.div(&b.clone().as_float()?),
                 },
                 Self::Rational(rat) => match rhs {
                     Self::Int(_) => Self::Int(*rat.numer()).div(&Self::Int(*rat.denom()).mul(rhs)?),
@@ -192,9 +192,9 @@ impl Div for Number {
                     Self::Radical(r) => Self::Int(*rat.numer())
                         .div(&r.radicand.mul(&Self::Rational(r.coefficient))?)?
                         .mul(&Self::Int(*rat.denom())),
-                    _ => self.as_float()?.div(&rhs.as_float()?),
+                    _ => self.clone().as_float()?.div(&rhs.clone().as_float()?),
                 },
-                a => a.as_float()?.div(&rhs.as_float()?),
+                a => a.clone().as_float()?.div(&rhs.clone().as_float()?),
             }
         }
     }

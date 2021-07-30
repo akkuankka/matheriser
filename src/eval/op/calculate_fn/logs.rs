@@ -33,7 +33,7 @@ pub fn natural_log(x: Number) -> DataResult {
     match x {
         Number::Symbol(Symbol::E) => Ok(Number::Int(1)),
         Number::Symbolic(s) => {
-            let Symbolic {coeff, symbol, constant} = *s;
+            let Symbolic {ref coeff, symbol, ref constant} = *s;
             if symbol == Symbol::E {
                 if let (Some(c), None) = (&coeff, &constant) {
                     if let Some(n) = recursive_e_count(&c) {
@@ -44,10 +44,10 @@ pub fn natural_log(x: Number) -> DataResult {
                 } else if constant.is_none() && coeff.is_none() {
                     Ok(Number::Int(1))
                 } else {
-                    Symbolic {coeff, symbol, constant}.as_float().map(|x| Number::from(x.ln()))
+                    Symbolic {coeff: coeff.clone(), symbol, constant: constant.clone()}.as_float().map(|x| Number::from(x.ln()))
                 }
             } else {
-                Symbolic {coeff, symbol, constant}.as_float().map(|x| Number::from(x.ln()))
+                Symbolic {coeff: coeff.clone(), symbol, constant: constant.clone()}.as_float().map(|x| Number::from(x.ln()))
             } 
         }
         Number::Radical(r) => {

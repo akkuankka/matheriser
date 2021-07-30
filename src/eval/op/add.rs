@@ -10,83 +10,83 @@ pub trait Add<RHS = Self> {
 impl Add for Number {
     type Output = Result<Self, String>;
     fn add(&self, rhs: &Self) -> Self::Output {
-        match (self.clone(), rhs.clone()) { // this is not cheeky -- it's either copy or an Rc
+        match (self, rhs) { 
             (Number::Int(lhs), Number::Int(rhs)) => Ok(Number::Int(lhs + rhs)),
             (Number::Int(lhs), Number::Rational(rhs)) => Ok(Number::Rational(rhs + lhs)),
             (Number::Rational(lhs), Number::Rational(rhs)) => Ok(Number::Rational(rhs + lhs)),
             (Number::Rational(lhs), Number::Int(rhs)) => Ok(Number::Rational(lhs + rhs)),
-            (Number::Float(lhs), a) => Ok(Number::Float(lhs + f64::try_from(a)?)),
-            (a, Number::Float(rhs)) => Ok(Number::Float(f64::try_from(a)? + rhs)),
+            (Number::Float(lhs), a) => Ok(Number::Float(lhs + f64::try_from(a.clone())?)),
+            (a, Number::Float(rhs)) => Ok(Number::Float(f64::try_from(a.clone())? + rhs)),
             (Number::Symbol(sym), a) => Ok(Number::Symbolic(Rc::new(Symbolic {
                 coeff: None,
-                symbol: sym,
-                constant: Some(a),
+                symbol: *sym,
+                constant: Some(a.clone()),
             }))),
             (a, Number::Symbol(sym)) => Ok(Number::Symbolic(Rc::new(Symbolic {
                 coeff: None,
-                symbol: sym,
-                constant: Some(a),
+                symbol: *sym,
+                constant: Some(a.clone()),
             }))),
             (Number::Symbolic(lcontent), Number::Symbolic(rcontent)) => {
                 let Symbolic {
-                    coeff: lcoeff,
+                    coeff: ref lcoeff,
                     symbol: lsymbol,
-                    constant: lconstant,
-                } = *lcontent;
+                    constant: ref lconstant,
+                } = **lcontent;
                 let Symbolic {
-                    coeff: rcoeff,
+                    coeff: ref rcoeff,
                     symbol: rsymbol,
-                    constant: rconstant,
-                } = *rcontent.clone();
+                    constant: ref rconstant,
+                } = **lcontent;
                 if lsymbol == rsymbol {
                     Ok(Number::Symbolic(Rc::new(Symbolic {
-                        coeff: lcoeff.or_merge(|a, b| a.add(&b), Ok(rcoeff))?,
+                        coeff: lcoeff.clone().or_merge(|a, b| a.add(&b), Ok(rcoeff.clone()))?,
                         symbol: lsymbol,
-                        constant: lconstant.or_merge(|a, b| a.add(&b), Ok(rconstant))?,
+                        constant: lconstant.clone().or_merge(|a, b| a.add(&b), Ok(rconstant.clone()))?,
                     })))
                 } else {
                     Ok(Number::Symbolic(Rc::new(Symbolic {
-                        coeff: lcoeff,
+                        coeff: lcoeff.clone(),
                         symbol: lsymbol,
-                        constant: lconstant
-                            .or_merge(|a, b| a.add(&b), Ok(Some(Number::Symbolic(rcontent))))?,
+                        constant: lconstant.clone()
+                            .or_merge(|a, b| a.add(&b), Ok(Some(Number::Symbolic(rcontent.clone()))))?,
                     })))
                 }
             }
             (Number::Symbolic(content), a) => {
                 let Symbolic {
-                    coeff,
+                    ref coeff,
                     symbol,
-                    constant,
-                } = *content;
+                    ref constant,
+                } = **content;
                 Ok(Number::Symbolic(Rc::new(Symbolic {
-                    coeff,
+                    coeff: coeff.clone(),
                     symbol,
-                    constant: constant.or_merge(|a, b| a.add(&b), Ok(Some(a)))?,
+                    constant: constant.clone().or_merge(|a, b| a.add(&b), Ok(Some(a.clone())))?,
                 })))
             }
             (a, Number::Symbolic(content)) => {
                 let Symbolic {
-                    coeff,
+                    ref coeff,
                     symbol,
-                    constant,
-                } = *content;
+                    ref constant,
+                } = **content;
                 Ok(Number::Symbolic(Rc::new(Symbolic {
-                    coeff,
+                    coeff: coeff.clone(),
                     symbol,
-                    constant: constant.or_merge(|a, b| a.add(&b), Ok(Some(a)))?,
+                    constant: constant.clone().or_merge(|a, b| a.add(&b), Ok(Some(a.clone())))?,
                 })))
             }
             (Number::Radical(rad), Number::Int(int)) | (Number::Int(int), Number::Radical(rad)) => {
                 // assuming the radical is not illformed (i.e. shouldn't exist), this shouldn't yield a pretty radical, therefore it must go to a float ;-;
-                Ok(Number::Float(rad.as_float()? + int as f64))
+                Ok(Number::Float(rad.as_float()? + *int as f64))
             }
             (Number::Radical(lhs), Number::Radical(rhs)) => {
                 if lhs.index == rhs.index && lhs.radicand == rhs.radicand {
                     Ok(Number::Radical(Radical {
                         coefficient: lhs.coefficient + rhs.coefficient,
                         index: lhs.index,
-                        radicand: lhs.radicand,
+                        radicand: lhs.radicand.clone(),
                     }.into()))
                 }
                 // weird edge case: you can manipulate one to look like the other because the indices are divisible.
@@ -100,7 +100,7 @@ impl Add for Number {
                     Ok(Number::Radical(Rc::new(Radical {
                         coefficient: lhs.coefficient + rhs.coefficient,
                         index: lhs.index,
-                        radicand: lhs.radicand,
+                        radicand: lhs.radicand.clone(),
                     })))
                 }
                 // needs to commute Bruh
@@ -113,7 +113,7 @@ impl Add for Number {
                     Ok(Number::Radical(Rc::new(Radical {
                         coefficient: lhs.coefficient + rhs.coefficient,
                         index: rhs.index,
-                        radicand: rhs.radicand,
+                        radicand: rhs.radicand.clone(),
                     })))
                 } else {
                     Ok(Number::Float(lhs.as_float()? + rhs.as_float()?))
@@ -121,7 +121,7 @@ impl Add for Number {
             }
             (Number::Radical(rad), Number::Rational(rat))
             | (Number::Rational(rat), Number::Radical(rad)) => {
-                Ok(Number::Float(rad.as_float()? + ratio_as_float(rat)))
+                Ok(Number::Float(rad.as_float()? + ratio_as_float(*rat)))
             }
         }
     }

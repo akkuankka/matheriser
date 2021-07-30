@@ -4,19 +4,19 @@ use crate::{
     eval::op::calculate_fn::CalculateFn
 };
 use num::rational::Ratio;
-use op::pow::Pow;
 use radical::Radical;
 use std::convert::{TryFrom, TryInto};
-use std::ops::{Mul, Rem};
+use std::ops;
 use std::rc::Rc;
 
-mod op;
+pub mod op;
+use op::{Add, Div, Sub, Pow, Mul};
 mod ord;
 pub mod radical;
 
 /// This is a symbolic expression, not like the ones in lisp,
 /// these are for dealing with symbolic numbers like pi and e
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct Symbolic {
     pub coeff: Option<Number>,
     pub symbol: Symbol,
@@ -59,11 +59,11 @@ impl DivisibleBy<u16> for Symbolic {
 }
 
 impl Symbolic {
-    fn as_float(self) -> Result<f64, String> {
+    fn as_float(&self) -> Result<f64, String> {
         Ok(
-            f64::try_from(self.coeff.unwrap_or(Number::Int(1)))? * self.symbol.symbol_eval()?
-                + match self.constant {
-                    Some(d) => d.try_into()?,
+            f64::try_from(self.coeff.clone().unwrap_or(Number::Int(1)))? * self.symbol.symbol_eval()?
+                + match &self.constant {
+                    Some(d) => d.clone().try_into()?,
                     None => 0.,
                 },
         )
@@ -86,7 +86,7 @@ impl Symbolic {
 /// The basic data type that all our calculations act on, yes this is very large
 /// for what might be in other implementations a `f64` but in order to preserve
 /// rationals, radicals, and symbols, this needs to be kept.
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum Number {
     /// a whole number
     Int(i64),
@@ -131,7 +131,7 @@ impl Number {
         Ok(match self {
             Self::Float(_) => self,
             Self::Int(n) => Self::Float(n as f64),
-            Self::Rational(n) => Self::Float(ratio_as_float(*n)),
+            Self::Rational(n) => Self::Float(ratio_as_float(n)),
             Self::Symbol(s) => Self::Float(s.symbol_eval().unwrap_or(0.)),
             Self::Symbolic(s) => Self::Float(s.as_float()?),
             Self::Radical(r) => Self::Float(r.as_float()?),
@@ -145,8 +145,8 @@ fn ratio_as_float(r: Ratio<i64>) -> f64 {
 }
 
 #[non_exhaustive]
-#[derive(Copy, Clone, PartialEq, Eq)]
-enum Symbol {
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum Symbol {
     Pi, E, Phi, Sqrt2
 }
 
@@ -171,10 +171,10 @@ impl SymbolEval for String {
 impl SymbolEval for Symbol {
     fn symbol_eval(&self) -> Result<f64, String> {
         Ok(match self {
-            Pi => std::f64::consts::PI,
-            E => std::f64::consts::E,
-            Phi => 1.61803398874989484820458683436563811,
-            Sqrt2 => std::f64::consts::SQRT_2,
+            Symbol::Pi => std::f64::consts::PI,
+            Symbol::E => std::f64::consts::E,
+            Symbol::Phi => 1.61803398874989484820458683436563811,
+            Symbol::Sqrt2 => std::f64::consts::SQRT_2,
             _ => return Err("constant not recognised !".to_string())
         })
     }
@@ -201,11 +201,11 @@ trait DivisibleBy<T> {
 
 impl<T, U> DivisibleBy<T> for U
 where
-    U: Rem<T> + GenericThunk + Copy,
-    <U as Rem<T>>::Output: PartialEq + From<u8>,
+    U: ops::Rem<T> + GenericThunk + Copy,
+    <U as ops::Rem<T>>::Output: PartialEq + From<u8>,
 {
     fn divisible_by(&self, divisor: T) -> bool {
-        *self % divisor == <U as Rem<T>>::Output::from(0)
+        *self % divisor == <U as ops::Rem<T>>::Output::from(0)
     }
 }
 
@@ -221,7 +221,7 @@ impl !GenericThunk for Radical {}
 
 impl<T> DivisibleBy<Self> for Ratio<T>
 where
-    T: DivisibleBy<T> + Mul<Output = T> + Copy,
+    T: DivisibleBy<T> + ops::Mul<Output = T> + Copy,
 {
     fn divisible_by(&self, rhs: Self) -> bool {
         // a/b is divisible by c/d when d is divisible by bc:
@@ -297,7 +297,7 @@ impl ExprTree {
         match self {
             ExprTree::Val(k) => Ok(k),
             ExprTree::UNode(op, t) => match op {
-                UnaryOp::Neg => t.eval().map(|x| -x),
+                UnaryOp::Neg => t.eval().map(|x| -&x),
                 UnaryOp::Word(w) => t.eval().and_then(|x| x.calculate_fn(&w))
             },
             ExprTree::BNode(op, lhs, rhs) => {
@@ -305,10 +305,10 @@ impl ExprTree {
                 let r = rhs.eval()?;
                 match op {
                     BinaryOp::Plus => l.add(&r),
-                    BinaryOp::Minus => l - r,
+                    BinaryOp::Minus => l.sub(&r),
                     BinaryOp::Mul => l.mul(&r),
-                    BinaryOp::Exp => l.pow(r),
-                    BinaryOp::Div => l / r,
+                    BinaryOp::Exp => l.pow(&r),
+                    BinaryOp::Div => l.div(&r),
                 }
             }
         }

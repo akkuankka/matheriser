@@ -75,7 +75,7 @@ impl Pow for Number {
                             Symbolic {
                                 coeff: match i.coeff {
                                     None => Some(Self::Symbol(i.symbol.clone())),
-                                    Some(n) => Some(
+                                    Some(ref n) => Some(
                                         n.pow(&Self::Int(j))?
                                             .mul(&Self::Symbol(i.symbol.clone()))?,
                                     ),

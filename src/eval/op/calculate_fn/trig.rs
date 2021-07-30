@@ -36,15 +36,15 @@ pub fn sin(data: Number) -> DataResult {
         Number::Rational(n) => ratio_as_float(n).sin().into(),
         Number::Symbol(Symbol::Pi) => Number::Int(0),
         Number::Symbol(s) => s.symbol_eval()?.sin().into(),
-        Number::Symbolic(a) => match *a {
+        Number::Symbolic(a) => match &*a {
             Symbolic {
                 coeff: Some(coeff),
                 symbol,
                 constant: None,
-            } if symbol == Symbol::Pi => {
+            } if symbol == &Symbol::Pi => {
                 // if in terms of pi
                 if coeff
-                    <= Number::Symbolic(
+                    <= &Number::Symbolic(
                         Symbolic {
                             coeff: Some(Number::Rational(Ratio::from((1, 2)))),
                             symbol: Symbol::Pi,
@@ -52,7 +52,7 @@ pub fn sin(data: Number) -> DataResult {
                         }
                         .into(),
                     )
-                    && coeff >= Number::Int(0)
+                    && coeff >= &Number::Int(0)
                 {
                     // if in quadrant 1
                     if let Some(ret) = sin_pi_coeff_lookup(&coeff) {
@@ -62,8 +62,8 @@ pub fn sin(data: Number) -> DataResult {
                         f64::try_from(Number::Symbolic(
                             // otherwise just do it as a float
                             Symbolic {
-                                coeff: Some(coeff),
-                                symbol,
+                                coeff: Some(coeff.clone()),
+                                symbol: *symbol,
                                 constant: None,
                             }
                             .into(),
@@ -99,8 +99,8 @@ pub fn sin(data: Number) -> DataResult {
                                     f64::try_from(Number::Symbolic(
                                         // otherwise just do it as a float
                                         Symbolic {
-                                            coeff: Some(coeff),
-                                            symbol,
+                                            coeff: Some(coeff.clone()),
+                                            symbol: *symbol,
                                             constant: None,
                                         }
                                         .into(),
@@ -123,8 +123,8 @@ pub fn sin(data: Number) -> DataResult {
                                         -(f64::try_from(Number::Symbolic(
                                             // otherwise just do it as a float
                                             Symbolic {
-                                                coeff: Some(coeff),
-                                                symbol,
+                                                coeff: Some(coeff.clone()),
+                                                symbol: *symbol,
                                                 constant: None,
                                             }
                                             .into(),
@@ -134,11 +134,11 @@ pub fn sin(data: Number) -> DataResult {
                                 }
                             }
                         }
-                        a => Number::from((f64::try_from(a)? * std::f64::consts::PI).sin()),
+                        a => Number::from((f64::try_from(a.clone())? * std::f64::consts::PI).sin()),
                     }
                 }
             }
-            a => Number::from(a.as_float()?.sin()),
+            a => Number::from(a.clone().as_float()?.sin()),
         },
     })
 }
@@ -173,15 +173,15 @@ pub fn cos(data: Number) -> DataResult {
         Number::Radical(n) => n.as_float()?.cos().into(),
         Number::Symbol(Symbol::Pi) => Number::Int(-1),
         Number::Symbol(s) => s.symbol_eval()?.cos().into(),
-        Number::Symbolic(a) => match *a {
+        Number::Symbolic(a) => match &*a {
             Symbolic {
                 coeff: Some(coeff),
                 symbol,
                 constant: None,
-            } if symbol == Symbol::Pi => {
+            } if symbol == &Symbol::Pi => {
                 // if in terms of pi
                 if coeff
-                    <= Number::Symbolic(
+                    <= &Number::Symbolic(
                         Symbolic {
                             coeff: Some(Number::Rational(Ratio::from((1, 2)))),
                             symbol: Symbol::Pi,
@@ -189,7 +189,7 @@ pub fn cos(data: Number) -> DataResult {
                         }
                         .into(),
                     )
-                    && coeff >= Number::Int(0)
+                    && coeff >= &Number::Int(0)
                 {
                     // if in quadrant 1
                     if let Some(ret) = cos_pi_coeff_lookup(&coeff) {
@@ -199,8 +199,8 @@ pub fn cos(data: Number) -> DataResult {
                         f64::try_from(Number::Symbolic(
                             // otherwise just do it as a float
                             Symbolic {
-                                coeff: Some(coeff),
-                                symbol,
+                                coeff: Some(coeff.clone()),
+                                symbol: *symbol,
                                 constant: None,
                             }
                             .into(),
@@ -239,8 +239,8 @@ pub fn cos(data: Number) -> DataResult {
                                     f64::try_from(Number::Symbolic(
                                         // otherwise just do it as a float
                                         Symbolic {
-                                            coeff: Some(coeff),
-                                            symbol,
+                                            coeff: Some(coeff.clone()),
+                                            symbol: *symbol,
                                             constant: None,
                                         }
                                         .into(),
@@ -266,8 +266,8 @@ pub fn cos(data: Number) -> DataResult {
                                         -(f64::try_from(Number::Symbolic(
                                             // otherwise just do it as a float
                                             Symbolic {
-                                                coeff: Some(coeff),
-                                                symbol,
+                                                coeff: Some(coeff.clone()),
+                                                symbol: *symbol,
                                                 constant: None,
                                             }
                                             .into(),
@@ -277,11 +277,11 @@ pub fn cos(data: Number) -> DataResult {
                                 }
                             }
                         }
-                        a => Number::from((f64::try_from(a)? * std::f64::consts::PI).cos()),
+                        a => Number::from((f64::try_from(a.clone())? * std::f64::consts::PI).cos()),
                     }
                 }
             }
-            a => Number::from(a.as_float()?.cos()),
+            a => Number::from(a.clone().as_float()?.cos()),
         },
     })
 }
@@ -299,12 +299,12 @@ pub fn tan(theta: Number) -> DataResult {
 
     match theta {
         Number::Int(0) => Ok(Number::Int(0)),
-        Number::Symbolic(a) => match *a {
+        Number::Symbolic(a) => match &*a {
             Symbolic {
                 coeff: Some(coeff),
                 symbol,
                 constant: None,
-            } if symbol == Symbol::Pi => match coeff {
+            } if symbol == &Symbol::Pi => match coeff {
                 Number::Int(_) => Ok(Number::Int(0)),
                 Number::Rational(r) => {
                     let r = r % 1;
@@ -321,7 +321,7 @@ pub fn tan(theta: Number) -> DataResult {
                     }
                     else {sin(Number::Rational(r.clone()))?.div(&cos(Number::Rational(r))?)}
                 },
-                otherwise => Ok(f64::try_from(otherwise)?.tan().into())
+                otherwise => Ok(f64::try_from(otherwise.clone())?.tan().into())
             },
             otherwise => {
                 Ok(otherwise.as_float()?.tan().into())
