@@ -1,12 +1,13 @@
-use super::{op::pow::Pow, op::root::NthRoot, ratio_as_float, Data, DivisibleBy};
+use super::{op::{Div, Pow}, op::root::NthRoot, ratio_as_float, Number, DivisibleBy};
 use num::rational::Ratio;
 use std::convert::TryFrom;
+use std::rc::Rc;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct Radical {
     pub coefficient: Ratio<i64>,
     pub index: u32,
-    pub radicand: Box<Data>,
+    pub radicand: Number,
 }
 
 const PRIMES_TO_50: [u16; 15] = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47];
@@ -28,7 +29,7 @@ impl Radical {
         .iter()
         .map(|x| (x.pow(self.index), *x as u16))
         .filter(|x| {
-            let data = &*self.radicand;
+            let data = &self.radicand;
             data.divisible_by(x.1)
         })
         .collect();
@@ -40,7 +41,7 @@ impl Radical {
             [] => Ok(self),
             [(factor, root), ref factors @ ..] => {
                 let coefficient = self.coefficient * *root as i64;
-                let radicand = (*self.radicand / Data::Int(*factor as i64))?;
+                let radicand = self.radicand.div(&Number::Int(*factor as i64))?;
                 Radical {
                     coefficient,
                     index: self.index,
@@ -50,21 +51,21 @@ impl Radical {
             }
         }
     }
-    pub fn new(coeff: Ratio<i64>, index: u32, radicand: Box<Data>) -> Self {
+    pub fn new(coeff: Ratio<i64>, index: u32, radicand: &Number) -> Self {
         Self {
             coefficient: coeff,
             index,
-            radicand,
+            radicand: radicand.clone(),
         }
         .simplify()
         .unwrap() // if this dies it's my fault
     }
 
-    pub fn new_raw(coeff: Ratio<i64>, index: u32, radicand: Box<Data>) -> Self {
+    pub fn new_raw(coeff: Ratio<i64>, index: u32, radicand: &Number) -> Self {
         Self {
             coefficient: coeff,
             index,
-            radicand,
+            radicand: radicand.clone(),
         }
     }
 }
@@ -98,9 +99,9 @@ impl DivisibleBy<&Self> for Radical {
 }
 
 impl Radical {
-    pub fn as_float(self) -> Result<f64, String> {
+    pub fn as_float(&self) -> Result<f64, String> {
         Ok(ratio_as_float(self.coefficient)
-            * f64::try_from(*self.radicand)?
+            * f64::try_from(self.radicand.clone())?
                 .nth_root(self.index as i64)
                 .ok_or("Even root of negative number")?)
     }
@@ -108,7 +109,7 @@ impl Radical {
         Ok(Self::new(
             1.into(),
             self.index,
-            self.radicand.pow(Data::from(self.index as i64 - 1))?.into(),
+            &self.radicand.pow(&Number::from(self.index as i64 - 1))?,
         ))
     }
 }

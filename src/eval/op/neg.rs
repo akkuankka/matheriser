@@ -1,24 +1,25 @@
-use crate::eval::{Data, Radical, Symbolic};
+use crate::eval::{Number, Radical, Symbolic};
+use std::rc::Rc;
 use std::ops::Neg;
 
-impl Neg for Data {
-    type Output = Self;
+impl Neg for &Number {
+    type Output = Number;
     fn neg(self) -> Self::Output {
-        match self {
-            Self::Int(i) => Self::Int(-i),
-            Self::Float(f) => Self::Float(-f),
-            Self::Symbol(s) => Self::Symbolic(Box::new(Symbolic {
-                coeff: Some(Self::Int(-1)),
+        match self.clone() {
+            Number::Int(i) => Number::Int(-i),
+            Number::Float(f) => Number::Float(-f),
+            Number::Symbol(s) => Number::Symbolic(Rc::new(Symbolic {
+                coeff: Some(Number::Int(-1)),
                 symbol: s,
                 constant: None
             })),
-            Self::Symbolic(s) => Self::Symbolic(Box::new(Symbolic {
-                coeff: s.coeff.map(|x| -x).or(Some(Data::Int(-1))),
+            Number::Symbolic(s) => Number::Symbolic(Rc::new(Symbolic {
+                coeff: s.coeff.as_ref().map(|x| -x).or(Some(Number::Int(-1))),
                 symbol: s.symbol,
-                constant: s.constant.map(|x| -x)
+                constant: s.constant.as_ref().map(|x| -x)
             })),
-            Self::Rational(r) => Self::Rational(-r),
-            Self::Radical(r) => Self::Radical(Radical::new( -r.coefficient, r.index, r.radicand))
+            Number::Rational(r) => Number::Rational(-r),
+            Number::Radical(r) => Number::Radical(Rc::new(Radical::new( -r.coefficient, r.index, &r.radicand)))
         }
     }
 }

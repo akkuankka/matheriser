@@ -1,10 +1,15 @@
-use crate::eval::Data;
-use std::ops::Sub;
+use crate::eval::Number;
+use super::Add;
+
+pub trait Sub {
+    type Output;
+    fn sub(&self, rhs: &Self) -> Self::Output;
+}
 
 //possibly a little simplistic but alas
-impl Sub for Data {
+impl Sub for Number {
     type Output = Result<Self, String>;
-    fn sub(self, rhs: Self) -> Self::Output {
-        self + -rhs
+    fn sub(&self, rhs: &Self) -> Self::Output {
+        self.add(&-rhs)
     }
 }

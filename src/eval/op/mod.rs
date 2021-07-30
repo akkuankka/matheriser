@@ -7,4 +7,6 @@ pub mod neg;
 pub mod root;
 pub mod calculate_fn;
 
+pub use {add::Add, sub::Sub, mul::Mul, div::Div, pow::Pow};
+
 

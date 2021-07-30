@@ -1,24 +1,28 @@
-use crate::eval::{Data, DivisibleBy, Radical};
+use crate::eval::{Number, DivisibleBy, Radical};
 use num::rational::Ratio;
 use std::convert::TryInto;
+use std::rc::Rc;
+
+use super::Mul;
 pub trait NthRoot<RHS = Self>
 where
     Self: Sized,
+    RHS: Copy // this is copy because it's passed by value
 {
     type Output;
     //computes the nth root of a number
-    fn nth_root(self, index: RHS) -> Self::Output;
+    fn nth_root(&self, index: RHS) -> Self::Output;
 }
 
 impl NthRoot<i64> for f64 {
     type Output = Option<Self>;
-    fn nth_root(self, index: i64) -> Self::Output {
+    fn nth_root(&self, index: i64) -> Self::Output {
         if index == 0 {
             None
-        } else if index % 2 == 0 && self < 0. {
+        } else if index % 2 == 0 && *self < 0. {
             None
         } else {
-            let (should_negate, abs_self) = (self < 0., self.abs());
+            let (should_negate, abs_self) = (*self < 0., self.abs());
             Some({ |x: f64| if should_negate { -x } else { x } }(
                 abs_self.powf(1. / index as f64),
             ))
@@ -28,8 +32,8 @@ impl NthRoot<i64> for f64 {
 
 impl NthRoot<f64> for f64 {
     type Output = Option<Self>;
-    fn nth_root(self, index: f64) -> Self::Output {
-        if index == 0. || self < 0. {
+    fn nth_root(&self, index: f64) -> Self::Output {
+        if index == 0. || *self < 0. {
             None
         } else {
             Some(self.powf(1. / index))
@@ -93,7 +97,7 @@ fn generate_pascals_row_inners(n: u32) -> Vec<u32> {
 
 impl NthRoot for u32 {
     type Output = Option<Self>;
-    fn nth_root(self, dimension: u32) -> Self::Output {
+    fn nth_root(&self, dimension: u32) -> Self::Output {
         // this is a very un-functional way of implementing this
         let increment_for_dimension_formula = |k: u32, coeffs: &Vec<u32>| {
             // but I could not care less
@@ -105,12 +109,12 @@ impl NthRoot for u32 {
         };
         let mut so_far = 0_u32;
         let inners = generate_pascals_row_inners(dimension);
-        for i in 0..self {
+        for i in 0..*self {
             let inc = increment_for_dimension_formula(i, &inners);
             so_far += inc;
-            if so_far == self {
+            if so_far == *self {
                 return Some(i + 1);
-            } else if so_far > self {
+            } else if so_far > *self {
                 return None;
             }
         }
@@ -118,9 +122,9 @@ impl NthRoot for u32 {
     }
 }
 
-impl NthRoot<i64> for Data {
-    type Output = Result<Self, String>;
-    fn nth_root(self, rhs: i64) -> Self::Output {
+impl NthRoot<i64> for Number {
+    type Output = Result<Number, String>;
+    fn nth_root(&self, rhs: i64) -> Self::Output {
         if rhs == 0 {
             Err(String::from(
                 "Maths error: cannot take the 0th root of a number",
@@ -132,7 +136,7 @@ impl NthRoot<i64> for Data {
                 match self {
                     Self::Int(lhs) => {
                         // If it is an int then 1:
-                        if lhs < 0 {
+                        if *lhs < 0 {
                             // we need to check that we're not taking the square/4th etc root of a negative number
                             if rhs.divisible_by(2) {
                                 return Err("Non-real error: even root of a negative number".into());
@@ -144,19 +148,19 @@ impl NthRoot<i64> for Data {
                         match (abs_lhs as u32).nth_root(index) {
                             // now that that's sorted out, does the root resolve to an integer?
                             Some(n) => Self::Int(n as i64 * if should_negate { -1 } else { 1 }), // if so, return that (negated as necessary)
-                            None => Self::Radical(Radical::new_raw(
+                            None => Self::Radical(Rc::new(Radical::new_raw(
                                 if should_invert {
                                     Ratio::from(-1)
                                 } else {
                                     Ratio::from(1)
                                 },
                                 index,
-                                Box::new(self),
-                            )),
+                                self,
+                            ))),
                         }
                     }
                     Self::Float(n) => {
-                        if n < 0. {
+                        if *n < 0. {
                             // we need to check that we're not taking the square/4th etc root of a negative number
                             if rhs.divisible_by(2) {
                                 return Err("Non-real error: even root of a negative number".into());
@@ -164,18 +168,18 @@ impl NthRoot<i64> for Data {
                                 should_negate = true; // in that case we just negate the output of it as if it were a positive number
                             }
                         }
-                        Self::Radical(Radical::new_raw(
+                        Self::Radical(Rc::new(Radical::new_raw(
                             if should_negate {
                                 Ratio::from(-1)
                             } else {
                                 Ratio::from(1)
                             },
                             index,
-                            Box::new(self),
-                        ))
+                            self,
+                        )))
                     }
                     Self::Rational(rat) => {
-                        if rat < Ratio::from(0) {
+                        if rat < &Ratio::from(0) {
                             // we need to check that we're not taking the square/4th etc root of a negative number
                             if rhs.divisible_by(2) {
                                 return Err(
@@ -185,17 +189,17 @@ impl NthRoot<i64> for Data {
                                 should_negate = true; // in that case we just negate the output of it as if it were a positive number
                             }
                         }
-                        Self::Radical(Radical::new_raw(
+                        Self::Radical(Rc::new(Radical::new_raw(
                             Ratio::from((if should_negate { 1 } else { -1 }, *rat.denom())),
                             index,
-                            Box::new(Self::Int(*rat.denom() * *rat.numer())),
-                        ))
+                            &Self::Int(*rat.denom() * *rat.numer()),
+                        )))
                     }
                     Self::Radical(rad) => {
                         let result =
-                            Radical::new_raw(rad.coefficient, rad.index * index, rad.radicand);
+                            Radical::new_raw(rad.coefficient, rad.index * index, &rad.radicand);
                         if result.index.divisible_by(2) {
-                            if *result.radicand < Self::Int(0) {
+                            if result.radicand < Self::Int(0) {
                                 return Err(
                                     "Non-real error: even root of a negative number".to_string()
                                 );
@@ -204,13 +208,13 @@ impl NthRoot<i64> for Data {
                             }
                         }
                         if should_negate {
-                            (Self::Radical(result) * Self::Int(-1))?
+                            Self::Radical(Rc::new(result)).mul(&Self::Int(-1))?
                         } else {
-                            Self::Radical(result)
+                            Self::Radical(Rc::new(result))
                         }
                     }
                     Self::Symbol(s) => {
-                        let f: f64 = Self::Symbol(s.clone()).try_into()?;
+                        let f: f64 = Self::Symbol(*s).try_into()?;
                         if f < 0. {
                             // we need to check that we're not taking the square/4th etc root of a negative number
                             if rhs.divisible_by(2) {
@@ -221,11 +225,11 @@ impl NthRoot<i64> for Data {
                                 should_negate = true; // in that case we just negate the output of it as if it were a positive number
                             }
                         }
-                        Self::Radical(Radical::new_raw(
+                        Self::Radical(Rc::new(Radical::new_raw(
                             Ratio::from(if should_negate { 1 } else { -1 }),
                             index,
-                            Box::new(Self::Symbol(s)),
-                        ))
+                            &Self::Symbol(*s),
+                        )))
                     }
                     Self::Symbolic(s) => {
                         let f: f64 = Self::Symbolic(s.clone()).try_into()?;
@@ -239,11 +243,11 @@ impl NthRoot<i64> for Data {
                                 should_negate = true; // in that case we just negate the output of it as if it were a positive number
                             }
                         }
-                        Self::Radical(Radical::new_raw(
+                        Self::Radical(Rc::new(Radical::new_raw(
                             Ratio::from(if should_negate { 1 } else { -1 }),
                             index,
-                            Box::new(Self::Symbolic(s)),
-                        ))
+                            &Self::Symbolic(s.clone()),
+                        )))
                     }
                 }
             })

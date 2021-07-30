@@ -1,14 +1,14 @@
 /*! These are all the display implementations for `Data`*/
 
-use crate::eval::{radical::Radical, Data, Symbolic};
+use crate::eval::{radical::Radical, Number, Symbolic, Symbol, op::Mul};
 use std::fmt;
 use std::fmt::{Display, Formatter};
 
-impl Display for Data {
+impl Display for Number {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match &self {
-            Data::Int(a) => write!(f, "{}", a),
-            Data::Float(a) => {
+            Number::Int(a) => write!(f, "{}", a),
+            Number::Float(a) => {
                 let maybe_scientific =
                     if format!("{:.8}", a).matches('0').collect::<Vec<_>>().len() >= 4 {
                         format!("{:.8e}", a)
@@ -17,14 +17,14 @@ impl Display for Data {
                     };
                 write!(f, "{}", maybe_scientific)
             }
-            Data::Rational(a) => write!(f, "{}/{}", a.numer(), a.denom()),
-            Data::Radical(a) => {
+            Number::Rational(a) => write!(f, "{}/{}", a.numer(), a.denom()),
+            Number::Radical(a) => {
                 let coeff = if a.coefficient == 1.into() {
                     "".to_string()
                 } else if *a.coefficient.denom() == 1 {
                     a.coefficient.numer().to_string()
                 } else {
-                    format!("{}", Data::Rational(a.coefficient))
+                    format!("{}", Number::Rational(a.coefficient))
                 };
                 let index = a.index;
                 let index_str = if index == 2 {
@@ -34,8 +34,8 @@ impl Display for Data {
                 };
                 write!(f, "({}) {}√({})", coeff, index_str, a.radicand)
             }
-            Data::Symbol(a) => write!(f, "{}", a.as_utf8()),
-            Data::Symbolic(a) => write!(f, "{}", a),
+            Number::Symbol(a) => write!(f, "{}", a.as_utf8()),
+            Number::Symbolic(a) => write!(f, "{}", a),
         }
     }
 }
@@ -44,14 +44,14 @@ trait AsUtf8 {
     fn as_utf8(&self) -> String;
 }
 
-impl AsUtf8 for String {
+impl AsUtf8 for Symbol {
     fn as_utf8(&self) -> String {
-        match self.as_str() {
-            "pi" | "Pi" => "π",
-            "e" | "E" => "e",
-            "phi" | "Phi" => "ϕ",
-            "sqrt2" | "root2" => "√",
-            l => l,
+        match self {
+            Symbol::Pi => "π",
+            Symbol::E => "e",
+            Symbol::Phi => "ϕ",
+            Symbol::Sqrt2 => "√2",
+            l => "?",
         }
         .to_string()
     }
@@ -60,12 +60,12 @@ impl AsUtf8 for String {
 /// A Data-Exponent pair such as (√3)^2
 #[derive(PartialEq, PartialOrd)]
 struct DFactor {
-    val: Data,
+    val: Number,
     exponent: u32,
 }
 
-impl From<Data> for DFactor {
-    fn from(data: Data) -> Self {
+impl From<Number> for DFactor {
+    fn from(data: Number) -> Self {
         DFactor {
             val: data,
             exponent: 1,
@@ -74,6 +74,7 @@ impl From<Data> for DFactor {
 }
 
 use std::collections::HashMap;
+use std::rc::Rc;
 
 struct FactorChain {
     symbol_map: HashMap<String, u32>,
@@ -81,16 +82,16 @@ struct FactorChain {
 }
 
 /// this function primarily exists because I cannot be bothered writing a trait
-fn insert_or_inc_factor(factors: &mut Vec<DFactor>, insert: Data) {
-    let is_one = insert == Data::Int(1);
+fn insert_or_inc_factor(factors: &mut Vec<DFactor>, insert: Number) {
+    let is_one = insert == Number::Int(1);
     let factor_to_add: DFactor = insert.into();
     if is_one {
         if !factors.contains(&DFactor {
-            val: Data::from(1),
+            val: Number::from(1),
             exponent: 1,
         }) {
             factors.push(DFactor {
-                val: Data::from(1),
+                val: Number::from(1),
                 exponent: 1,
             })
         }
@@ -125,27 +126,28 @@ impl FactorChain {
         }
     }
 
-    fn add(&mut self, data: Data) {
+    fn add(&mut self, data: Number) {
         match data {
-            Data::Int(_) | Data::Float(_) | Data::Rational(_) => {
+            Number::Int(_) | Number::Float(_) | Number::Rational(_) => {
                 insert_or_inc_factor(&mut self.data_factors, data)
             }
-            Data::Symbol(s) => insert_or_inc_symbol(&mut self.symbol_map, s.as_utf8()),
-            Data::Radical(rad) => {
-                let coeff = Data::Rational(rad.coefficient);
-                let rest = Data::Radical(Radical {
+            Number::Symbol(s) => insert_or_inc_symbol(&mut self.symbol_map, s.as_utf8()),
+            Number::Radical(rad) => {
+                let coeff = Number::Rational(rad.coefficient);
+                let rest = Number::Radical(Rc::new(Radical {
                     coefficient: 1.into(),
-                    ..rad
-                });
+                    index: rad.index,
+                    radicand: rad.radicand.clone()
+                }));
                 insert_or_inc_factor(&mut self.data_factors, coeff);
                 insert_or_inc_factor(&mut self.data_factors, rest);
             }
-            Data::Symbolic(s) => {
+            Number::Symbolic(s) => {
                 if let None = s.constant {
                     insert_or_inc_symbol(&mut self.symbol_map, s.symbol.as_utf8());
-                    insert_or_inc_factor(&mut self.data_factors, s.coeff.unwrap_or(Data::Int(1)))
+                    insert_or_inc_factor(&mut self.data_factors, s.as_ref().coeff.clone().unwrap_or(Number::Int(1)))
                 } else {
-                    insert_or_inc_factor(&mut self.data_factors, Data::Symbolic(s))
+                    insert_or_inc_factor(&mut self.data_factors, Number::Symbolic(s))
                 }
             }
         }
@@ -156,7 +158,7 @@ impl FactorChain {
             .data_factors
             .drain_filter(|factor| factor.exponent == 1)
             .map(|x| x.val)
-            .reduce(|x, y| (x * y).unwrap_or(Data::from(0)));
+            .reduce(|x, y| x.mul(&y).unwrap_or(Number::from(0)));
         if let Some(linears) = simple_linears_extracted {
             self.data_factors.push(DFactor {
                 exponent: 1,
@@ -169,17 +171,17 @@ impl FactorChain {
 impl Display for Symbolic {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let mut l_factor_chain = FactorChain::new();
-        l_factor_chain.add(Data::from(self.symbol.clone().as_utf8()));
-        let mut l_working = self.coeff.clone().unwrap_or(Data::Int(1));
-        l_factor_chain.add(Data::Int(1)); // 1 is implicit here
+        l_factor_chain.add(Number::from(self.symbol));
+        let mut l_working = self.coeff.clone().unwrap_or(Number::Int(1));
+        l_factor_chain.add(Number::Int(1)); // 1 is implicit here
         loop {
-            if let Data::Symbolic(a) = l_working {
+            if let Number::Symbolic(a) = l_working {
                 if a.constant == None {
-                    l_working = a.coeff.unwrap_or(Data::Int(1));
-                    l_factor_chain.add(Data::Symbol(a.symbol.as_utf8()));
+                    l_working = a.coeff.clone().unwrap_or(Number::Int(1));
+                    l_factor_chain.add(Number::Symbol(a.symbol));
                     continue;
                 } else {
-                    l_factor_chain.add(Data::Symbolic(a));
+                    l_factor_chain.add(Number::Symbolic(a));
                     break;
                 }
             } else {
@@ -192,7 +194,7 @@ impl Display for Symbolic {
             .into_iter()
             .filter(|x| {
                 x != &DFactor {
-                    val: Data::Int(1),
+                    val: Number::Int(1),
                     exponent: 1,
                 }
             })
@@ -201,13 +203,13 @@ impl Display for Symbolic {
         if let Some(a) = self.constant.clone() {
             let mut r_working = a;
             loop {
-                if let Data::Symbolic(a) = r_working {
+                if let Number::Symbolic(a) = r_working {
                     if a.constant == None {
-                        r_working = a.coeff.unwrap_or(Data::Int(1));
-                        r_factor_chain.add(Data::Symbol(a.symbol));
+                        r_working = a.coeff.clone().unwrap_or(Number::Int(1));
+                        r_factor_chain.add(Number::Symbol(a.symbol));
                         continue;
                     } else {
-                        r_factor_chain.add(Data::Symbolic(a));
+                        r_factor_chain.add(Number::Symbolic(a));
                         break;
                     }
                 } else {
@@ -278,20 +280,3 @@ impl Display for Symbolic {
     }
 }
 
-#[cfg(test)]
-mod test {
-
-    use super::*;
-    use std::str;
-    #[test]
-    fn as_utf8_is_correct() {
-        assert_eq!("pi".to_string().as_utf8(), "π");
-        assert_eq!(
-            str::from_utf8(&[112u8, 105u8])
-                .unwrap()
-                .to_string()
-                .as_utf8(),
-            "π"
-        )
-    }
-}
