@@ -1,7 +1,11 @@
-use crate::eval::{op::pow::Pow, ratio_as_float, Number, SymbolEval, Symbolic};
+use crate::eval::{
+    op::{Div, Mul, Pow, Sub},
+    ratio_as_float, Number, SymbolEval, Symbolic,
+};
 use num::integer::lcm;
 use num::rational::Ratio;
 use std::cmp::Ordering;
+use std::rc::Rc;
 
 impl std::cmp::PartialOrd for Number {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
@@ -11,12 +15,12 @@ impl std::cmp::PartialOrd for Number {
             (Self::Rational(a), Self::Int(b)) => a.partial_cmp(&Ratio::from(*b)),
             (Self::Symbol(a), Self::Int(b)) => a.symbol_eval().ok()?.partial_cmp(&(*b as f64)),
             (Self::Radical(a), Self::Int(b)) => {
-                let (index, radicand) = (a.index, *a.radicand.clone());
-                println!("{} root {:?} ? {}", index, radicand, b);
+                let (index, radicand) = (a.index, a.radicand);
+                // println!("{} root {:?} ? {}", index, radicand, b); i don't know what this is used for?
                 let (lneg, rneg) = (a.coefficient < 0.into(), *b < 0);
                 let rhs = Ratio::from(*b) / a.coefficient;
-                let result = if lneg { -radicand } else { radicand }.partial_cmp(&if rneg {
-                    -Self::Rational(rhs.pow(index as i32).abs())
+                let result = if lneg { -&radicand } else { radicand }.partial_cmp(&if rneg {
+                    -&Self::Rational(rhs.pow(index as i32).abs())
                 } else {
                     Self::Rational(rhs.pow(index as i32).abs())
                 });
@@ -32,8 +36,10 @@ impl std::cmp::PartialOrd for Number {
                 let should_flip = coeff.as_ref().unwrap_or(&Self::Int(1)) < &Number::from(0);
                 Self::Symbol(symbol)
                     .partial_cmp(
-                        &((Self::Int(*b) - constant.unwrap_or(Number::Int(0))).ok()?
-                            / coeff.unwrap_or(Number::Int(1)))
+                        &(Self::Int(*b)
+                            .sub(&constant.unwrap_or(Number::Int(0)))
+                            .ok()?
+                            .div(&coeff.unwrap_or(Number::Int(1))))
                         .ok()?,
                     )
                     .map(|o| if should_flip { o.reverse() } else { o })
@@ -62,8 +68,8 @@ impl std::cmp::PartialOrd for Number {
                 }
             }
             (Self::Symbolic(a), Self::Symbolic(b)) => {
-                let a = a.clone();
-                let b = b.clone();
+                // let a = a.clone();
+                // let b = b.clone();
                 if a.symbol == b.symbol {
                     // the symbols are the same: fast path
                     match (&a.constant, &b.constant) {
@@ -83,13 +89,13 @@ impl std::cmp::PartialOrd for Number {
                             } else if (m == n) && (c == &0.into()) {
                                 Some(Ordering::Equal)
                             } else if m > n {
-                                if c > &((m - n).ok()? * a.symbol.into()).ok()? {
+                                if c > &m.sub(&n).ok()?.mul(&a.symbol.into()).ok()? {
                                     Some(Ordering::Greater)
                                 } else {
                                     Some(Ordering::Less)
                                 }
                             } else if m < n {
-                                if c < &((n - m).ok()? * a.symbol.into()).ok()? {
+                                if c < &n.sub(&m).ok()?.mul(&a.symbol.into()).ok()? {
                                     Some(Ordering::Less)
                                 } else {
                                     Some(Ordering::Greater)
@@ -100,22 +106,18 @@ impl std::cmp::PartialOrd for Number {
                         }
                         (None, Some(_)) => other.partial_cmp(&self).map(|o| o.reverse()),
                         (Some(c), Some(d)) => {
-                            let c = c.clone();
-                            let d = d.clone();
+                            // let c = c.clone();
+                            // let d = d.clone();
                             let m = a.coeff.clone().unwrap_or(Number::Int(1));
                             let n = b.coeff.clone().unwrap_or(Number::Int(1));
-                            let x = Number::from(a.symbol.clone());
+                            let x = Number::from(a.symbol);
                             if (m == n) && (c == d) {
                                 Some(Ordering::Equal)
-                            } else if (x.clone() * (m.clone() - n.clone()).ok()?).ok()?
-                                == (d.clone() - c.clone()).ok()?
-                            {
+                            } else if x.mul(&m.sub(&n).ok()?).ok()? == d.sub(c).ok()? {
                                 Some(Ordering::Equal)
-                            } else if (x.clone() * (m.clone() - n.clone()).ok()?).ok()?
-                                < (d.clone() - c.clone()).ok()?
-                            {
+                            } else if x.mul(&m.sub(&n).ok()?).ok()? < d.sub(c).ok()? {
                                 Some(Ordering::Less)
-                            } else if (x * (m - n).ok()?).ok()? < (d - c).ok()? {
+                            } else if x.mul(&m.sub(&n).ok()?).ok()? < d.sub(&c).ok()? {
                                 Some(Ordering::Less)
                             } else {
                                 None
@@ -126,30 +128,30 @@ impl std::cmp::PartialOrd for Number {
                     a.as_float().partial_cmp(&b.as_float())
                 }
             }
-            (&Self::Float(a), &Self::Radical(b)) => a.partial_cmp(&b.clone().as_float().ok()?),
-            (&Self::Radical(a), &Self::Radical(b)) => {
-                let a = a.clone();
-                let b = b.clone();
-                println!("{:?} is being compared with {:?}", a, b);
+            (Self::Float(a), Self::Radical(b)) => a.partial_cmp(&b.as_float().ok()?),
+            (Self::Radical(a), Self::Radical(b)) => {
+                // let a = a.clone();
+                // let b = b.clone();
+                // println!("{:?} is being compared with {:?}", a, b);
                 if a.index == b.index {
                     // easily done, this will be nearly every case because this is mostly sqrts
                     let i = a.index;
                     let (lneg, rneg) = (a.coefficient < 0.into(), b.coefficient < 0.into());
-                    let mut should_flip = *a.radicand < Self::Int(0);
+                    let mut should_flip = a.radicand < Self::Int(0);
                     should_flip ^= b.coefficient < 0.into(); // the rarely used XOR-Assignment operator, both is true, it should be false
                     let m = a.coefficient;
                     let n = b.coefficient;
                     let mpow = m.pow(i as i32);
                     let npow = n.pow(i as i32);
-                    println!("SameIndex_Coeffs: {:?} / {:?} = ...", mpow, npow);
+                    // println!("SameIndex_Coeffs: {:?} / {:?} = ...", mpow, npow);
                     let lhs = Self::Rational(mpow / npow);
-                    println!("{:?}", lhs);
-                    println!(
-                        "SameIndex_Radicands: {:?} / {:?} = ...",
-                        b.radicand, a.radicand
-                    );
-                    let r_rhs = (*b.radicand / (*a.radicand)).ok()?;
-                    println!("{:?}", r_rhs);
+                    // println!("{:?}", lhs);
+                    // println!(
+                    //     "SameIndex_Radicands: {:?} / {:?} = ...",
+                    //     b.radicand, a.radicand
+                    // );
+                    let r_rhs = b.radicand.div(&a.radicand).ok()?;
+                    // println!("{:?}", r_rhs);
                     let result = lhs.partial_cmp(&r_rhs).map(|o| {
                         if should_flip {
                             o.reverse()
@@ -163,33 +165,41 @@ impl std::cmp::PartialOrd for Number {
                             o
                         }
                     }); // if should flip, flip it
-                    println!("{:?}", result);
+                        // println!("{:?}", result);
                     result
                 } else {
                     let (lneg, rneg) = (a.coefficient < 0.into(), b.coefficient < 0.into());
                     let k = lcm(a.index, b.index) as i32; // lowest common multiple of the indices
                     let m = a.coefficient.abs();
                     let n = b.coefficient.abs();
-                    let lhs = { |x: Number| if lneg { -x } else { x } }(
+                    let lhs = { |x: &Number| if lneg { -x } else { *x } }(
                         // flip if negative
-                        (Self::Rational(m.pow(k))
-                            * a.radicand.pow(Number::from(k as i64 / a.index as i64)).ok()?)
-                        .ok()?,
+                        &Self::Rational(m.pow(k))
+                            .mul(
+                                &a.radicand
+                                    .pow(&Number::from(k as i64 / a.index as i64))
+                                    .ok()?,
+                            )
+                            .ok()?,
                     );
-                    let rhs = { |x: Number| if rneg { -x } else { x } }(
-                        (Self::Rational(n.pow(k))
-                            * b.radicand.pow(Number::from(k as i64 / b.index as i64)).ok()?)
-                        .ok()?,
+                    let rhs = { |x: &Number| if rneg { -x } else { *x } }(
+                        &Self::Rational(n.pow(k))
+                            .mul(
+                                &b.radicand
+                                    .pow(&Number::from(k as i64 / b.index as i64))
+                                    .ok()?,
+                            )
+                            .ok()?,
                     );
                     lhs.partial_cmp(&rhs)
                 }
             }
             (Self::Radical(a), Self::Rational(b)) => {
-                let (index, radicand) = (a.index, *a.radicand.clone());
+                let (index, radicand) = (a.index, a.radicand);
                 let (lneg, rneg) = (a.coefficient < 0.into(), b < &0.into());
                 let rhs = b / a.coefficient.abs();
-                if lneg { -radicand } else { radicand }.partial_cmp(&if rneg {
-                    -Self::Rational(rhs.pow(index as i32).abs())
+                if lneg { -&radicand } else { radicand }.partial_cmp(&if rneg {
+                    -&Self::Rational(rhs.pow(index as i32).abs())
                 } else {
                     Self::Rational(rhs.pow(index as i32).abs())
                 })
@@ -200,12 +210,14 @@ impl std::cmp::PartialOrd for Number {
                     coeff,
                     symbol,
                     constant,
-                } = *a.clone();
+                } = &**a;
                 let should_flip = coeff.as_ref().unwrap_or(&Self::Int(1)) < &Number::from(0);
-                Self::Symbol(symbol)
+                Self::Symbol(*symbol)
                     .partial_cmp(
-                        &((Self::Rational(*b) - constant.unwrap_or(Number::Int(0))).ok()?
-                            / coeff.unwrap_or(Number::Int(1)))
+                        &(Self::Rational(*b)
+                            .sub(&constant.unwrap_or(Number::Int(0)))
+                            .ok()?
+                            .div(&coeff.unwrap_or(Number::Int(1))))
                         .ok()?,
                     )
                     .map(|o| if should_flip { o.reverse() } else { o })
@@ -237,9 +249,10 @@ impl Abs for Ratio<i64> {
 
 #[cfg(test)]
 mod test {
-    use crate::eval::{radical::Radical, Number, Symbolic};
+    use crate::eval::{radical::Radical, Number, Symbol, Symbolic};
     use num::rational::Ratio;
     use rand::Rng;
+    use std::rc::Rc;
     #[test]
     fn ints() {
         let mut rng = rand::thread_rng();
@@ -258,26 +271,42 @@ mod test {
     #[test]
     fn roots() {
         assert!(
-            Number::Radical(Radical::new(3.into(), 2, Number::from(2).into())).partial_cmp(
-                &Number::Radical(Radical::new(4.into(), 2, Number::from(2).into()))
+            Number::Radical(Rc::new(Radical::new(3.into(), 2, &Number::from(2)))).partial_cmp(
+                &Number::Radical(Rc::new(Radical::new(4.into(), 2, &Number::from(2))))
             ) == Some(std::cmp::Ordering::Less)
         ); // distinguish by coefficient
-        assert!(Number::Int(2) > Number::Radical(Radical::new(1.into(), 2, Number::from(2).into()))); // distinguish from int
         assert!(
-            Number::Radical(Radical::new(1.into(), 2, Number::from(19).into()))
-                > Number::Radical(Radical::new(3.into(), 2, Number::from(2).into()))
+            Number::Int(2) > Number::Radical(Rc::new(Radical::new(1.into(), 2, &Number::from(2))))
+        ); // distinguish from int
+        assert!(
+            Number::Radical(Rc::new(Radical::new(1.into(), 2, &Number::from(19))))
+                > Number::Radical(Rc::new(Radical::new(3.into(), 2, &Number::from(2))))
         ); // distinguish complex
     }
 
     #[test]
     fn roots_negatives_cursory() {
         assert!(
-            Number::Radical(Radical::new_raw(Ratio::from(-1), 2, Number::from(2).into()))
-                < Number::Radical(Radical::new_raw(Ratio::from(1), 2, Number::from(2).into()))
+            Number::Radical(Rc::new(Radical::new_raw(
+                Ratio::from(-1),
+                2,
+                &Number::from(2)
+            ))) < Number::Radical(Rc::new(Radical::new_raw(
+                Ratio::from(1),
+                2,
+                &Number::from(2)
+            )))
         );
         assert!(
-            Number::Radical(Radical::new_raw(Ratio::from(-90), 3, Number::from(-2).into()))
-                > Number::Radical(Radical::new_raw(Ratio::from(-1), 3, Number::from(2).into()))
+            Number::Radical(Rc::new(Radical::new_raw(
+                Ratio::from(-90),
+                3,
+                &Number::from(-2)
+            ))) > Number::Radical(Rc::new(Radical::new_raw(
+                Ratio::from(-1),
+                3,
+                &Number::from(2)
+            )))
         );
     }
 
@@ -304,11 +333,15 @@ mod test {
             println!("round");
             assert_eq!(
                 {
-                    let lhs =
-                        Number::Radical(Radical::new((2 * m).into(), 3, Number::from(2 * a).into()));
-                    println!("lhs: {:?}", lhs);
-                    let rhs = Number::Radical(Radical::new(n.into(), 3, Number::from(2 * b).into()));
-                    println!("rhs: {:?}", rhs);
+                    let lhs = Number::Radical(Rc::new(Radical::new(
+                        (2 * m).into(),
+                        3,
+                        &Number::from(2 * a),
+                    )));
+                    // println!("lhs: {:?}", lhs);
+                    let rhs =
+                        Number::Radical(Rc::new(Radical::new(n.into(), 3, &Number::from(2 * b))));
+                    // println!("rhs: {:?}", rhs);
                     lhs.partial_cmp(&rhs)
                 },
                 ordering
@@ -322,25 +355,25 @@ mod test {
             Number::Symbolic(
                 Symbolic {
                     coeff: Some(Number::from(2)),
-                    symbol: "pi".into(),
+                    symbol: Symbol::Pi,
                     constant: None
                 }
                 .into()
-            ) > Number::Symbol("pi".into())
+            ) > Number::Symbol(Symbol::Pi)
         );
 
         assert!(
             Number::Symbolic(
                 Symbolic {
                     coeff: Some(Number::from(4)),
-                    symbol: "pi".into(),
+                    symbol: Symbol::Pi,
                     constant: None
                 }
                 .into()
             ) > Number::Symbolic(
                 Symbolic {
                     coeff: Some(Number::from(2)),
-                    symbol: "pi".into(),
+                    symbol: Symbol::Pi,
                     constant: None
                 }
                 .into()
@@ -350,7 +383,7 @@ mod test {
             Number::Symbolic(
                 Symbolic {
                     coeff: Some(Number::from(2)),
-                    symbol: "pi".into(),
+                    symbol: Symbol::Pi,
                     constant: None
                 }
                 .into()
